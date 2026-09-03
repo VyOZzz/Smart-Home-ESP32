@@ -1,0 +1,14 @@
+# Core FastAPI dependencies
+fastapi
+uvicorn[standard]
+pydantic
+
+# Gemini integration
+google-genai
+python-dotenv
+mutagen
+
+# Fire detection dependencies
+opencv-python
+numpy
+playsound==1.2.2
