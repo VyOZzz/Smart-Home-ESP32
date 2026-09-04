@@ -65,6 +65,9 @@ class Settings:
     gemini_tts_model: str = field(
         default_factory=lambda: _env_str("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts")
     )
+    gemini_image_model: str = field(
+        default_factory=lambda: _env_str("GEMINI_IMAGE_MODEL", "gemini-3.5-flash")
+    )
     conversation_history_file: Path = field(
         default_factory=lambda: _env_path(
             "CONVERSATION_HISTORY_FILE", Path("data") / "conversation_history.json"

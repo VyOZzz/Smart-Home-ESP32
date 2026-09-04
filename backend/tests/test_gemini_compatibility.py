@@ -93,6 +93,48 @@ class GeminiCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         self.service._enqueue_audio_chunk.assert_awaited_once()
         self.service._append_to_conversation_history.assert_called_once_with("assistant", "Đã tạm dừng.")
 
+    async def test_uploaded_image_and_question_share_one_request(self):
+        generate = AsyncMock(return_value=SimpleNamespace(text="Có ngọn lửa trong ảnh."))
+        self.service.client = SimpleNamespace(aio=SimpleNamespace(models=SimpleNamespace(generate_content=generate)))
+        self.service._send_safely = AsyncMock()
+        self.service._maybe_handle_fire_detection = AsyncMock()
+        self.service._append_to_conversation_history = Mock()
+        await self.service._handle_image_analysis(None, {
+            "mime_type": "image/png", "data": base64.b64encode(b"image bytes").decode(),
+            "prompt": "Ảnh có gì?",
+        })
+        content = generate.call_args.kwargs["contents"][0]
+        self.assertEqual(content.parts[0].inline_data.data, b"image bytes")
+        self.assertEqual(content.parts[0].inline_data.mime_type, "image/png")
+        self.assertEqual(content.parts[1].text, "Ảnh có gì?")
+        self.assertEqual(generate.call_args.kwargs["model"], settings.gemini_image_model)
+        self.service._maybe_handle_fire_detection.assert_awaited_once_with(None, b"image bytes", "image/png")
+        self.service._send_safely.assert_awaited_once_with(None, {
+            "type": "image_analysis_result", "text": "Có ngọn lửa trong ảnh.",
+        })
+
+    async def test_image_api_failure_still_runs_fire_detection(self):
+        generate = AsyncMock(side_effect=RuntimeError("API unavailable"))
+        self.service.client = SimpleNamespace(aio=SimpleNamespace(models=SimpleNamespace(generate_content=generate)))
+        self.service._send_safely = AsyncMock()
+        self.service._maybe_handle_fire_detection = AsyncMock()
+        await self.service._handle_image_analysis(None, {
+            "mime_type": "image/jpeg", "data": base64.b64encode(b"image").decode(), "prompt": "Mô tả ảnh",
+        })
+        self.service._maybe_handle_fire_detection.assert_awaited_once()
+        self.assertEqual(self.service._send_safely.call_args.args[1]["type"], "image_analysis_error")
+
+    async def test_invalid_uploaded_image_is_rejected_before_api_call(self):
+        self.service.client = Mock()
+        self.service._send_safely = AsyncMock()
+        self.service._maybe_handle_fire_detection = AsyncMock()
+        await self.service._handle_image_analysis(None, {
+            "mime_type": "image/png", "data": "not base64!", "prompt": "Mô tả ảnh",
+        })
+        self.service.client.aio.models.generate_content.assert_not_called()
+        self.service._maybe_handle_fire_detection.assert_not_awaited()
+        self.assertEqual(self.service._send_safely.call_args.args[1]["type"], "image_analysis_error")
+
     async def test_notification_uses_tts_model_and_returns_audio(self):
         generate = AsyncMock(return_value=types.GenerateContentResponse(candidates=[
             types.Candidate(content=types.Content(parts=[types.Part(

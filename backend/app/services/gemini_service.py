@@ -170,7 +170,9 @@ class GeminiService:
             while True:
                 data = await websocket.receive_text()
                 payload = json.loads(data)
-                if "text" in payload:
+                if "image_analysis" in payload:
+                    await self._handle_image_analysis(websocket, payload["image_analysis"])
+                elif "text" in payload:
                     text = payload["text"]
                     await self._send_safely(websocket, {"text": f"(offline) {text}"})
                 elif "tool_call" in payload:
@@ -207,6 +209,10 @@ class GeminiService:
                             "timestamp": dt.datetime.utcnow().isoformat(),
                         },
                     )
+                    continue
+
+                if "image_analysis" in data:
+                    await self._handle_image_analysis(websocket, data["image_analysis"])
                     continue
 
                 if "realtime_input" in data:
@@ -476,6 +482,60 @@ class GeminiService:
                 )
         except WebSocketDisconnect:
             logger.info("Ping loop stopped (disconnect)")
+
+    async def _handle_image_analysis(self, websocket: WebSocket, payload: Any) -> None:
+        """Bind an uploaded image and its question in one multimodal request."""
+        try:
+            if not isinstance(payload, dict):
+                raise ValueError("Yêu cầu ảnh không hợp lệ.")
+            mime = payload.get("mime_type")
+            encoded = payload.get("data")
+            prompt = payload.get("prompt")
+            if mime not in {"image/jpeg", "image/png", "image/webp"}:
+                raise ValueError("Vui lòng gửi ảnh JPEG, PNG hoặc WebP.")
+            if not isinstance(encoded, str) or len(encoded) > 5592408:
+                raise ValueError("Ảnh không hợp lệ hoặc vượt quá 4 MB.")
+            try:
+                image_bytes = base64.b64decode(encoded, validate=True)
+            except (ValueError, binascii.Error) as exc:
+                raise ValueError("Không thể giải mã ảnh.") from exc
+            if not image_bytes or len(image_bytes) > 4 * 1024 * 1024:
+                raise ValueError("Ảnh trống hoặc vượt quá 4 MB.")
+            if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 4000:
+                raise ValueError("Câu hỏi về ảnh không hợp lệ.")
+        except ValueError as exc:
+            await self._send_safely(websocket, {"type": "image_analysis_error", "message": str(exc)})
+            return
+
+        async def analyze() -> None:
+            try:
+                if not self.client:
+                    raise RuntimeError("Gemini client unavailable")
+                response = await asyncio.wait_for(
+                    self.client.aio.models.generate_content(
+                        model=settings.gemini_image_model,
+                        contents=[types.Content(role="user", parts=[
+                            types.Part.from_bytes(data=image_bytes, mime_type=mime),
+                            types.Part(text=prompt),
+                        ])],
+                    ),
+                    timeout=45,
+                )
+                reply = (response.text or "").strip()
+                if not reply:
+                    raise RuntimeError("Gemini returned no image analysis")
+                self._append_to_conversation_history("user", f"[Ảnh tải lên] {prompt}")
+                self._append_to_conversation_history("assistant", reply)
+                await self._send_safely(websocket, {"type": "image_analysis_result", "text": reply})
+            except Exception:
+                logger.exception("Image analysis failed (model=%s)", settings.gemini_image_model)
+                await self._send_safely(websocket, {
+                    "type": "image_analysis_error",
+                    "message": "Không thể phân tích ảnh bằng Gemini. Kiểm tra API key, quyền truy cập GEMINI_IMAGE_MODEL và log backend, rồi thử lại.",
+                })
+
+        # OpenCV alerts remain independent of Gemini's answer or API failures.
+        await asyncio.gather(analyze(), self._maybe_handle_fire_detection(websocket, image_bytes, mime))
 
     async def _process_realtime_media_chunk(
         self, websocket: WebSocket, session, chunk: Dict[str, Any]

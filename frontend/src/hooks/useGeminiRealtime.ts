@@ -331,6 +331,33 @@ export const useGeminiRealtime = ({
             showFeedback(message, true);
             return;
           }
+          case "image_analysis_result": {
+            if (typeof data.text === "string") {
+              appendChatMessage({ role: "assistant", content: data.text });
+            }
+            return;
+          }
+          case "image_analysis_error": {
+            const message = typeof data.message === "string" ? data.message : "Không thể phân tích ảnh.";
+            appendChatMessage({ role: "system", content: message });
+            showFeedback(message, true);
+            return;
+          }
+          case "fire_detection_alert": {
+            const message = typeof data.message === "string"
+              ? data.message
+              : "Cảnh báo: phát hiện dấu hiệu lửa trong ảnh. Vui lòng kiểm tra.";
+            appendChatMessage({ role: "system", content: message });
+            showFeedback(message, true);
+            if (typeof data.audio_base64 === "string" && data.audio_base64) {
+              playAssistantAudio({
+                data: data.audio_base64,
+                mime_type: typeof data.audio_format === "string" ? data.audio_format : "audio/pcm",
+                sample_rate: typeof data.audio_sample_rate === "number" ? data.audio_sample_rate : OUTPUT_SAMPLE_RATE
+              });
+            }
+            return;
+          }
           case "tool_call": {
             const functionName = typeof data.function_name === "string" ? data.function_name : "unknown";
             appendChatMessage({
@@ -742,15 +769,13 @@ export const useGeminiRealtime = ({
       const buffer = await file.arrayBuffer();
       const base64 = arrayBufferToBase64(buffer);
       const mimeType = file.type || "image/png";
+      const imagePrompt = "Hãy mô tả ảnh đính kèm bằng tiếng Việt và cho biết có dấu hiệu lửa hoặc khói hay không. Nếu không rõ, hãy nói rõ bạn chưa thể xác định.";
       socket.send(
         JSON.stringify({
-          realtime_input: {
-            media_chunks: [
-              {
-                mime_type: mimeType,
-                data: base64
-              }
-            ]
+          image_analysis: {
+            mime_type: mimeType,
+            data: base64,
+            prompt: imagePrompt
           }
         })
       );
@@ -758,10 +783,10 @@ export const useGeminiRealtime = ({
       const dataUrl = `data:${mimeType};base64,${base64}`;
       appendChatMessage({
         role: "user",
-        content: file.name ? `Đã gửi ảnh ${file.name}` : "Đã gửi một ảnh",
+        content: `${file.name ? `Đã gửi ảnh ${file.name}` : "Đã gửi một ảnh"}\n${imagePrompt}`,
         imageDataUrl: dataUrl
       });
-      showFeedback("Đã gửi ảnh tới Gemini");
+      showFeedback("Đã gửi ảnh và yêu cầu phân tích. Đang chờ Gemini phản hồi.");
       clearSelectedImage();
     } catch (error) {
       console.error("Không thể gửi ảnh tới Gemini", error);
