@@ -1,5 +1,4 @@
 import base64
-import base64
 import logging
 import struct
 from typing import Optional
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationVoiceService:
-    """Generate fire-alert notifications using Gemini Live when available."""
+    """Generate fire-alert notifications using a Gemini TTS model when available."""
 
     SAMPLE_RATE = 24000
     DURATION_SECONDS = 1
@@ -29,7 +28,7 @@ class NotificationVoiceService:
         self.client = client
         if self.client is None and settings.google_api_key:
             self.client = genai.Client(api_key=settings.google_api_key)
-        self.model = model or settings.gemini_model
+        self.model = model or settings.gemini_tts_model
         self.voice_name = voice_name
         self.language_code = language_code
 

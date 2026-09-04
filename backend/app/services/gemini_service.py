@@ -224,10 +224,8 @@ class GeminiService:
                 if "text" in data:
                     text_content = data["text"]
                     logger.info(f"📝 Sending text to Gemini: {text_content}")
-                    await session.send_client_content(
-                        turns={"role": "user", "parts": [{"text": text_content}]},
-                        turn_complete=True,
-                    )
+                    # Gemini 3.1 Live accepts ongoing text via realtime input.
+                    await session.send_realtime_input(text=text_content)
                     self._append_to_conversation_history("user", text_content)
                     logger.info("✅ Text sent and saved to history")
                     continue
@@ -318,7 +316,6 @@ class GeminiService:
                         
                         if hasattr(response, "tool_call") and response.tool_call:
                             await self._handle_tool_calls(websocket, session, response.tool_call)
-                            continue
 
                         if getattr(response, "usage_metadata", None):
                             usage_snapshot = self._extract_token_usage(response.usage_metadata)
@@ -518,7 +515,10 @@ class GeminiService:
             logger.debug("Bỏ qua realtime_input với mime type không hỗ trợ: %s", mime)
             return
 
-        await session.send_realtime_input(audio=audio_blob, media=media_blob)
+        if audio_blob:
+            await session.send_realtime_input(audio=audio_blob)
+        else:
+            await session.send_realtime_input(video=media_blob)
 
         if media_blob:
             await self._maybe_handle_fire_detection(
@@ -775,7 +775,6 @@ class GeminiService:
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
                 ),
-                language_code="vi-VN",
             ),
             tools=[
                 types.Tool(
