@@ -1,6 +1,22 @@
 version: "3.9"
 
 services:
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: iot-mqtt
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mqtt/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -t smarthome/healthcheck -m ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -13,6 +29,11 @@ services:
       - ./backend/music:/app/backend/music
     environment:
       - PYTHONUNBUFFERED=1
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+    depends_on:
+      mqtt:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -25,3 +46,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  mosquitto_data:

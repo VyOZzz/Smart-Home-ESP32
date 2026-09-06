@@ -70,6 +70,9 @@ logs/
 temp/
 tmp/
 cache/
+esp32-firmware/include/config.h
+.pio/
+esp32-firmware/.pio/
 
 # OS files
 .DS_Store
