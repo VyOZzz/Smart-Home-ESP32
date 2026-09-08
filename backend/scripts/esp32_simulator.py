@@ -71,7 +71,7 @@ def on_message(client, userdata, message) -> None:
         return
     states[light_id] = command in {"on", "1", "true"}
     publish_state(client, light_id)
-    print(f"[RELAY] {light_id} -> {'ON' if states[light_id] else 'OFF'}", flush=True)
+    print(f"[LIGHT] {light_id} -> {'ON' if states[light_id] else 'OFF'}", flush=True)
 
 
 def main() -> int:

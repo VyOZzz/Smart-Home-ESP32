@@ -1,74 +1,46 @@
-# ESP32 relay firmware
+# ESP32 light firmware
 
-Firmware điều khiển bốn relay qua MQTT. Camera, microphone, nhận diện cháy và
-Gemini tiếp tục chạy trên laptop; ESP32 chỉ nhận lệnh và điều khiển GPIO.
+Firmware nhận lệnh MQTT và điều khiển bốn LED đại diện cho bốn phòng. Camera,
+microphone, loa, Gemini và nhận diện hình ảnh chạy trên MacBook.
 
-## Phần cứng mặc định
+## Sơ đồ phần cứng hiện tại
 
-| Thiết bị | MQTT id | GPIO |
+| Đèn | MQTT ID | GPIO |
 | --- | --- | ---: |
 | Phòng khách | `living-room` | 16 |
 | Phòng ngủ | `bedroom` | 17 |
 | Nhà bếp | `kitchen` | 18 |
 | Ban công | `balcony` | 19 |
 
-Firmware mặc định cho relay active-LOW. Khi khởi động, cả bốn kênh được đưa về
-trạng thái tắt trước khi kết nối mạng.
+Mỗi LED cần một điện trở 330 Ω riêng:
 
-## Cấu hình và nạp code
-
-1. Cài VS Code và extension PlatformIO IDE.
-2. Mở thư mục `esp32-firmware` bằng PlatformIO.
-3. Sửa `include/config.h` với Wi-Fi và địa chỉ IPv4 LAN của laptop.
-4. Kết nối ESP32 bằng USB.
-5. Chạy **PlatformIO: Upload**.
-6. Mở Serial Monitor ở `115200` baud.
-
-Trước khi bật ESP32, khởi động MQTT broker ở thư mục gốc của project:
-
-```powershell
-docker compose up -d mqtt
+```text
+3V3 → điện trở 330 Ω → chân dài LED (+) → chân ngắn LED (-) → GPIO
 ```
 
-Không đặt `MQTT_HOST` thành `localhost` hoặc `127.0.0.1`; từ ESP32, hai địa chỉ
-đó trỏ tới chính ESP32. Laptop và ESP32 phải ở cùng mạng và cổng MQTT `1883`
-phải được firewall cho phép.
+Đầu ra được cấu hình active-LOW: lệnh `ON` đặt GPIO xuống LOW và làm LED sáng.
+Khi ESP32 khởi động, bốn LED được đặt về trạng thái tắt.
+
+## Cấu hình và nạp firmware
+
+1. Sao chép `include/config.example.h` thành `include/config.h` nếu file chưa có.
+2. Điền Wi-Fi và IPv4 LAN của MacBook đang chạy MQTT broker.
+3. Cắm ESP32 bằng cáp USB truyền dữ liệu.
+4. Chạy PlatformIO Upload.
+5. Mở Serial Monitor ở `115200` baud.
+
+Không đặt `MQTT_HOST` thành `localhost`: trên ESP32, địa chỉ đó trỏ về chính
+ESP32. MacBook và ESP32 phải ở cùng mạng Wi-Fi.
 
 ## MQTT protocol
 
-Lệnh cho từng relay:
+- Lệnh: `smarthome/lights/<id>/set` với payload `ON` hoặc `OFF`.
+- Trạng thái xác nhận: `smarthome/lights/<id>/state`.
+- Yêu cầu đồng bộ: `smarthome/esp32/get-state`.
+- Trạng thái kết nối: `smarthome/esp32/status`.
+- Điều khiển cả bốn đèn: `smarthome/lights/all/set`.
 
-```text
-smarthome/lights/living-room/set
-smarthome/lights/bedroom/set
-smarthome/lights/kitchen/set
-smarthome/lights/balcony/set
-```
+Topic `/state` xác nhận trạng thái GPIO mà firmware đã đặt. Với mô hình hiện
+tại, LED cung cấp phản hồi trực quan cho người dùng.
 
-Payload hợp lệ: `ON`, `OFF`, `1`, `0`, `true`, `false`, `{"on":true}` hoặc
-`{"on":false}`. Backend không nên publish lệnh với cờ retained.
-
-ESP32 phản hồi trạng thái retained trên:
-
-```text
-smarthome/lights/<id>/state
-```
-
-Ví dụ:
-
-```json
-{"device_id":"esp32-main","id":"living-room","name":"Phòng khách","on":true,"gpio":16}
-```
-
-Các topic bổ sung:
-
-- `smarthome/lights/all/set`: bật hoặc tắt toàn bộ relay.
-- `smarthome/esp32/get-state`: publish payload bất kỳ để yêu cầu snapshot.
-- `smarthome/esp32/status`: trạng thái online/offline retained; offline được gửi
-  bằng MQTT Last Will khi ESP32 mất kết nối bất thường.
-
-## Thử mà chưa gắn relay
-
-Có thể dùng LED nối tiếp điện trở 220-330 ohm để kiểm tra từng GPIO. Vì firmware
-mặc định active-LOW, LED mắc từ 3.3 V qua điện trở tới GPIO sẽ sáng khi relay ở
-trạng thái ON. Không nối tải điện 220 V trong giai đoạn kiểm thử.
+Không đấu điện lưới vào breadboard hoặc ESP32.

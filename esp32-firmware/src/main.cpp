@@ -18,25 +18,22 @@ constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10000UL;
 constexpr unsigned long MQTT_RETRY_INTERVAL_MS = 5000UL;
 constexpr unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000UL;
 
-// Most 5 V relay boards are active LOW. Change this to false if your relay
-// switches on when its input is HIGH.
-constexpr bool RELAY_ACTIVE_LOW = true;
+// The learning setup wires LEDs from 3.3 V to each GPIO, so LOW turns them on.
+constexpr bool OUTPUT_ACTIVE_LOW = true;
 
-struct RelayChannel {
+struct LightChannel {
   const char *id;
   const char *displayName;
   uint8_t pin;
   bool isOn;
 };
 
-RelayChannel relays[] = {
+LightChannel lights[] = {
     {"living-room", "Phòng khách", 16, false},
     {"bedroom", "Phòng ngủ", 17, false},
     {"kitchen", "Nhà bếp", 18, false},
     {"balcony", "Ban công", 19, false},
 };
-
-constexpr size_t RELAY_COUNT = sizeof(relays) / sizeof(relays[0]);
 
 WiFiClient wifiClient;
 PubSubClient mqttClient(wifiClient);
@@ -44,22 +41,22 @@ PubSubClient mqttClient(wifiClient);
 unsigned long lastWifiAttempt = 0;
 unsigned long lastMqttAttempt = 0;
 
-void setRelay(RelayChannel &relay, bool turnOn) {
-  relay.isOn = turnOn;
-  const uint8_t activeLevel = RELAY_ACTIVE_LOW ? LOW : HIGH;
-  const uint8_t inactiveLevel = RELAY_ACTIVE_LOW ? HIGH : LOW;
-  digitalWrite(relay.pin, turnOn ? activeLevel : inactiveLevel);
+void setLightOutput(LightChannel &light, bool turnOn) {
+  light.isOn = turnOn;
+  const uint8_t activeLevel = OUTPUT_ACTIVE_LOW ? LOW : HIGH;
+  const uint8_t inactiveLevel = OUTPUT_ACTIVE_LOW ? HIGH : LOW;
+  digitalWrite(light.pin, turnOn ? activeLevel : inactiveLevel);
 }
 
-String stateTopic(const RelayChannel &relay) {
-  return String(MQTT_ROOT) + "/lights/" + relay.id + "/state";
+String stateTopic(const LightChannel &light) {
+  return String(MQTT_ROOT) + "/lights/" + light.id + "/state";
 }
 
-String setTopic(const RelayChannel &relay) {
-  return String(MQTT_ROOT) + "/lights/" + relay.id + "/set";
+String setTopic(const LightChannel &light) {
+  return String(MQTT_ROOT) + "/lights/" + light.id + "/set";
 }
 
-void publishRelayState(const RelayChannel &relay) {
+void publishLightState(const LightChannel &light) {
   if (!mqttClient.connected()) {
     return;
   }
@@ -67,14 +64,14 @@ void publishRelayState(const RelayChannel &relay) {
   char payload[192];
   snprintf(payload, sizeof(payload),
            "{\"device_id\":\"%s\",\"id\":\"%s\",\"name\":\"%s\",\"on\":%s,\"gpio\":%u}",
-           DEVICE_ID, relay.id, relay.displayName, relay.isOn ? "true" : "false",
-           relay.pin);
-  mqttClient.publish(stateTopic(relay).c_str(), payload, true);
+           DEVICE_ID, light.id, light.displayName, light.isOn ? "true" : "false",
+           light.pin);
+  mqttClient.publish(stateTopic(light).c_str(), payload, true);
 }
 
-void publishAllRelayStates() {
-  for (const auto &relay : relays) {
-    publishRelayState(relay);
+void publishAllLightStates() {
+  for (const auto &light : lights) {
+    publishLightState(light);
   }
 }
 
@@ -108,7 +105,7 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length) {
   const String receivedTopic(topic);
 
   if (receivedTopic == DEVICE_GET_STATE_TOPIC) {
-    publishAllRelayStates();
+    publishAllLightStates();
     return;
   }
 
@@ -119,31 +116,30 @@ void onMqttMessage(char *topic, byte *payload, unsigned int length) {
   }
 
   if (receivedTopic == ALL_LIGHTS_SET_TOPIC) {
-    for (auto &relay : relays) {
-      setRelay(relay, turnOn);
-      publishRelayState(relay);
+    for (auto &light : lights) {
+      setLightOutput(light, turnOn);
+      publishLightState(light);
     }
     return;
   }
 
-  for (auto &relay : relays) {
-    if (receivedTopic == setTopic(relay)) {
-      setRelay(relay, turnOn);
-      publishRelayState(relay);
-      Serial.printf("[RELAY] %s -> %s\n", relay.id, turnOn ? "ON" : "OFF");
+  for (auto &light : lights) {
+    if (receivedTopic == setTopic(light)) {
+      setLightOutput(light, turnOn);
+      publishLightState(light);
+      Serial.printf("[LIGHT] %s -> %s\n", light.id, turnOn ? "ON" : "OFF");
       return;
     }
   }
 }
 
-void initializeRelays() {
-  // Write the safe OFF level before switching each pin to OUTPUT. This helps
-  // avoid a short relay pulse during boot.
-  const uint8_t inactiveLevel = RELAY_ACTIVE_LOW ? HIGH : LOW;
-  for (auto &relay : relays) {
-    digitalWrite(relay.pin, inactiveLevel);
-    pinMode(relay.pin, OUTPUT);
-    setRelay(relay, false);
+void initializeLightOutputs() {
+  // Write the OFF level before switching each pin to OUTPUT.
+  const uint8_t inactiveLevel = OUTPUT_ACTIVE_LOW ? HIGH : LOW;
+  for (auto &light : lights) {
+    digitalWrite(light.pin, inactiveLevel);
+    pinMode(light.pin, OUTPUT);
+    setLightOutput(light, false);
   }
 }
 
@@ -204,11 +200,11 @@ void connectMqtt() {
   mqttClient.subscribe(DEVICE_GET_STATE_TOPIC, 1);
   mqttClient.subscribe(ALL_LIGHTS_SET_TOPIC, 1);
 
-  for (const auto &relay : relays) {
-    mqttClient.subscribe(setTopic(relay).c_str(), 1);
+  for (const auto &light : lights) {
+    mqttClient.subscribe(setTopic(light).c_str(), 1);
   }
 
-  publishAllRelayStates();
+  publishAllLightStates();
 }
 
 }  // namespace
@@ -216,7 +212,7 @@ void connectMqtt() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  initializeRelays();
+  initializeLightOutputs();
 
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   mqttClient.setCallback(onMqttMessage);

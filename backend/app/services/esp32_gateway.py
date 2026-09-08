@@ -1,4 +1,4 @@
-"""MQTT gateway between FastAPI and the ESP32 relay controller."""
+"""MQTT gateway between FastAPI and the ESP32 light controller."""
 
 from __future__ import annotations
 

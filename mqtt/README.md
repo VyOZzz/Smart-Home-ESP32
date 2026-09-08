@@ -8,7 +8,7 @@ Broker lắng nghe cổng TCP `1883` và lưu retained messages vào Docker volu
 
 Yêu cầu Docker Desktop đang chạy:
 
-```powershell
+```bash
 docker compose up -d mqtt
 docker compose ps
 docker compose logs mqtt
@@ -22,27 +22,27 @@ Khi container healthy, điền địa chỉ IPv4 LAN của laptop vào
 #define MQTT_PORT 1883
 ```
 
-Tìm IPv4 của laptop trên Windows:
+Tìm IPv4 Wi-Fi của MacBook:
 
-```powershell
-ipconfig
+```bash
+ipconfig getifaddr en0
 ```
 
-Nếu ESP32 không kết nối được, cho phép inbound TCP port `1883` trong Windows
-Firewall và kiểm tra laptop/ESP32 đang cùng mạng Wi-Fi. Không dùng `localhost`
-trong firmware.
+Nếu ESP32 không kết nối được, kiểm tra MacBook và ESP32 đang cùng mạng Wi-Fi,
+Docker Desktop đang chạy và `MQTT_HOST` vẫn khớp IP LAN hiện tại. Không dùng
+`localhost` trong firmware.
 
 ## Kiểm tra broker
 
 Mở terminal thứ nhất:
 
-```powershell
+```bash
 docker compose exec mqtt mosquitto_sub -h localhost -t "smarthome/#" -v
 ```
 
 Mở terminal thứ hai:
 
-```powershell
+```bash
 docker compose exec mqtt mosquitto_pub -h localhost -t "smarthome/lights/living-room/set" -m "ON"
 ```
 

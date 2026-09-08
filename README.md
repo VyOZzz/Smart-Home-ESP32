@@ -2,44 +2,56 @@
 
 Hệ thống nhà thông minh ứng dụng **ESP32**, **MQTT** và **trí tuệ nhân tạo Gemini**, cho phép người dùng giám sát và điều khiển các thiết bị trong nhà thông qua giao diện web hoặc ứng dụng Android.
 
-ESP32 đóng vai trò là bộ điều khiển thiết bị tại hiện trường: kết nối Wi-Fi, nhận lệnh qua MQTT, điều khiển bốn kênh relay và gửi trạng thái hoạt động về hệ thống theo thời gian thực. Backend FastAPI xử lý nghiệp vụ, kết nối trợ lý AI, quản lý nhạc và làm cầu nối giữa giao diện người dùng với ESP32.
+ESP32 đóng vai trò là bộ điều khiển thiết bị tại hiện trường: kết nối Wi-Fi, nhận lệnh qua MQTT, điều khiển bốn LED đại diện cho bốn phòng và gửi trạng thái hoạt động về hệ thống theo thời gian thực. Backend FastAPI xử lý nghiệp vụ, kết nối trợ lý AI, quản lý nhạc và làm cầu nối giữa giao diện người dùng với ESP32.
+
+## Phạm vi bản demo
+
+- MacBook chạy Docker Desktop, MQTT broker, backend và frontend.
+- Camera, microphone và loa tích hợp trên MacBook cung cấp hình ảnh, giọng nói
+  và âm thanh phản hồi.
+- ESP32 cùng bốn LED mô phỏng bốn đèn trong nhà. LED là thiết bị đầu ra thật của
+  mô hình, không phải trạng thái giả chỉ tồn tại trên giao diện.
+- Danh sách thiết bị điều khiển gồm đúng bốn khu vực: phòng khách, phòng ngủ,
+  nhà bếp và ban công.
+- Project không sử dụng Raspberry Pi, module công suất hoặc điện lưới.
 
 ## Tính năng chính
 
 - Bật hoặc tắt đèn độc lập tại phòng khách, phòng ngủ, nhà bếp và ban công.
-- Điều khiển đồng thời toàn bộ thiết bị được kết nối với relay.
+- Điều khiển đồng thời bốn LED đại diện cho bốn đèn trong nhà.
 - Đồng bộ trạng thái thiết bị theo thời gian thực qua MQTT và WebSocket.
 - Tương tác với trợ lý Gemini bằng văn bản, giọng nói và hình ảnh.
 - Điều khiển thiết bị bằng câu lệnh tự nhiên, chẳng hạn như “Bật đèn phòng khách”.
 - Phát, tạm dừng, tiếp tục và tua nhạc từ thư viện trên máy chủ.
-- Nhận hình ảnh từ camera để hỗ trợ phát hiện dấu hiệu cháy và phát cảnh báo.
+- Phát hiện dấu hiệu cháy từ camera bằng OpenCV, hiển thị cảnh báo trên giao
+  diện và phát âm thanh cảnh báo qua loa MacBook.
 - Sử dụng trên cả trình duyệt web và ứng dụng Android.
 - Tự động kết nối lại Wi-Fi và MQTT khi đường truyền bị gián đoạn.
-- Khởi động relay ở trạng thái an toàn, tránh thiết bị bật ngoài ý muốn.
+- Khởi động các đầu ra GPIO ở trạng thái tắt.
 
 ## Kiến trúc hệ thống
 
 ```text
-Web React / Ứng dụng Android
-              │
-       HTTP + WebSocket
-              │
-       Backend FastAPI
-        ├── Gemini AI
-        ├── Xử lý hình ảnh
-        ├── Thư viện nhạc
-        └── MQTT Client
-              │
-      Eclipse Mosquitto
-              │
-          Wi-Fi / MQTT
-              │
-            ESP32
-              │
-      Module relay 4 kênh
-              │
-       Đèn / thiết bị điện
+Camera + micro MacBook ──► Web React ──► WebSocket ──► Gemini Live
+                              │                            │
+                              │ HTTP/WebSocket             ├── Hội thoại
+                              ▼                            ├── Điều khiển đèn
+                       Backend FastAPI                     └── Phân tích hình ảnh
+                         ├── Nhạc và âm thanh cảnh báo
+                         ├── Phát hiện vùng màu lửa bằng OpenCV
+                         └── MQTT gateway
+                                │
+                         Eclipse Mosquitto
+                                │ Wi-Fi / MQTT
+                                ▼
+                              ESP32
+                                │
+                       4 LED + 4 điện trở 330 Ω
 ```
+
+Khi điều khiển đèn, backend không cập nhật trạng thái theo yêu cầu gửi đi. Nó
+chỉ báo thành công sau khi ESP32 phản hồi trên topic `/state`. Nhờ đó, giao diện
+có thể phân biệt lệnh đã được thiết bị thực thi với trạng thái phần mềm tạm thời.
 
 ## Công nghệ sử dụng
 
@@ -57,11 +69,12 @@ Web React / Ứng dụng Android
 ## Phần cứng
 
 - Một bo mạch ESP32.
-- Module relay 4 kênh 5 V, ưu tiên loại có opto cách ly.
-- Nguồn điện phù hợp cho ESP32 và module relay.
-- Dây jumper.
-- Đèn LED và điện trở 220–330 Ω để kiểm thử, hoặc thiết bị điện phù hợp khi triển khai thực tế.
-- Camera, micro và loa nếu sử dụng đầy đủ chức năng hình ảnh, giọng nói và cảnh báo.
+- Một breadboard.
+- Bốn LED và bốn điện trở 330 Ω.
+- Dây jumper đực-đực.
+- Camera, micro và loa tích hợp trên MacBook.
+
+Danh sách kiểm kê và sơ đồ đấu chi tiết nằm trong [ITEMS.md](ITEMS.md).
 
 ### Sơ đồ chân mặc định
 
@@ -72,9 +85,10 @@ Web React / Ứng dụng Android
 | Nhà bếp | `kitchen` | 18 |
 | Ban công | `balcony` | 19 |
 
-Firmware được cấu hình mặc định cho relay **active-LOW**. Có thể thay đổi hằng số `RELAY_ACTIVE_LOW` trong `esp32-firmware/src/main.cpp` nếu module relay sử dụng mức kích hoạt HIGH.
+Firmware được cấu hình **active-LOW** để LED sáng khi nhận lệnh `ON`. Mỗi LED
+đấu từ `3V3` qua một điện trở 330 Ω tới GPIO tương ứng.
 
-> **Cảnh báo an toàn:** Chỉ nên dùng LED hoặc tải điện áp thấp trong giai đoạn kiểm thử. Không đấu nối điện lưới 220 V nếu chưa có kiến thức chuyên môn, thiết bị cách ly và biện pháp bảo vệ phù hợp.
+> Project hiện chỉ dùng điện áp thấp từ ESP32. Không đấu điện lưới vào breadboard.
 
 ## Cấu trúc thư mục
 
@@ -82,7 +96,7 @@ Firmware được cấu hình mặc định cho relay **active-LOW**. Có thể 
 Smart-Home-ESP32/
 ├── android-app/       # Ứng dụng Android bằng Jetpack Compose
 ├── backend/           # API, WebSocket, Gemini và xử lý nghiệp vụ
-├── esp32-firmware/    # Firmware điều khiển relay cho ESP32
+├── esp32-firmware/    # Firmware điều khiển bốn LED qua ESP32
 ├── frontend/          # Giao diện web React
 ├── mqtt/              # Cấu hình Eclipse Mosquitto
 ├── data/              # Dữ liệu dùng chung và âm thanh cảnh báo
@@ -231,7 +245,7 @@ npm run dev
 2. Kết nối ESP32 với máy tính qua USB.
 3. Chọn **PlatformIO: Upload** để biên dịch và nạp firmware.
 4. Mở **Serial Monitor** với baud rate `115200`.
-5. Kiểm tra log kết nối Wi-Fi, MQTT và trạng thái relay.
+5. Kiểm tra log kết nối Wi-Fi, MQTT và trạng thái các đèn.
 
 Cũng có thể sử dụng PlatformIO CLI:
 
@@ -262,13 +276,35 @@ Các topic chính:
 
 | Topic | Chức năng |
 | --- | --- |
-| `smarthome/lights/<id>/set` | Gửi lệnh bật/tắt một relay |
-| `smarthome/lights/<id>/state` | Nhận trạng thái của một relay |
-| `smarthome/lights/all/set` | Điều khiển tất cả relay |
+| `smarthome/lights/<id>/set` | Gửi lệnh bật/tắt một đèn |
+| `smarthome/lights/<id>/state` | Nhận trạng thái của một đèn |
+| `smarthome/lights/all/set` | Điều khiển tất cả đèn |
 | `smarthome/esp32/get-state` | Yêu cầu ESP32 gửi lại toàn bộ trạng thái |
 | `smarthome/esp32/status` | Theo dõi trạng thái online/offline của ESP32 |
 
 Payload điều khiển hợp lệ gồm `ON`, `OFF`, `1`, `0`, `true`, `false`, `{"on":true}` và `{"on":false}`.
+
+## Kịch bản trình diễn
+
+1. Chạy `docker compose up -d --build` và xác nhận MQTT, backend, frontend đều
+   hoạt động.
+2. Cấp nguồn ESP32; giao diện hiển thị thiết bị online và bốn trạng thái đèn.
+3. Bật/tắt từng đèn trên web và đối chiếu LED vật lý với trạng thái giao diện.
+4. Nói “bật đèn phòng khách”; Gemini gọi công cụ điều khiển và LED GPIO 16 sáng.
+5. Yêu cầu phát một bài hát, sau đó thử tạm dừng và tiếp tục.
+6. Bật camera, đưa ảnh/video thử nghiệm có vùng giống ngọn lửa vào khung hình và
+   kiểm tra cảnh báo hình ảnh cùng âm thanh.
+7. Rút nguồn ESP32; giao diện phải báo offline và API phải từ chối lệnh mới.
+8. Cắm lại ESP32; thiết bị tự kết nối và backend đồng bộ lại bốn trạng thái.
+
+## Tiêu chí hoàn thành
+
+- `[WiFi] Connected` và `[MQTT] Connected` xuất hiện trên Serial Monitor.
+- Lệnh từ nút web và Gemini đều làm đúng LED thay đổi.
+- Mỗi lệnh chỉ thành công sau khi có phản hồi `/state` từ ESP32.
+- Giao diện nhận cập nhật thời gian thực và hiển thị offline rõ ràng.
+- Camera, microphone, loa và trình phát nhạc hoạt động trên MacBook.
+- Khởi động lại broker hoặc ESP32 không làm mất khả năng đồng bộ.
 
 ## Chạy ứng dụng Android
 
@@ -307,6 +343,17 @@ Không commit các file chứa thông tin nhạy cảm như:
 - `backend/.env`
 - `esp32-firmware/include/config.h`
 - API key, mật khẩu Wi-Fi hoặc thông tin đăng nhập MQTT
+
+## Giới hạn của bản demo
+
+- Bốn LED đại diện cho đèn gia dụng; project không đóng/ngắt tải điện bên ngoài.
+- Topic `/state` xác nhận mức GPIO đã đặt. Nó không phải cảm biến độc lập kiểm
+  tra độ sáng của LED.
+- Nhận diện cháy dựa trên xử lý hình ảnh và chỉ mang tính minh họa học tập, không
+  thay thế đầu báo cháy chuyên dụng.
+- Luồng camera hiện gắn với phiên WebSocket Gemini. Khi không mở phiên tương tác,
+  hệ thống không thực hiện giám sát cháy liên tục.
+- MQTT đang cho phép kết nối ẩn danh trong mạng LAN để thuận tiện trình diễn.
 
 ## Hướng phát triển
 
