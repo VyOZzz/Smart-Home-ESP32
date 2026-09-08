@@ -20,6 +20,7 @@ from app.core.config import settings
 from app.services.fire_detection_service import FireDetectionService
 from app.services.notification_voice_service import NotificationVoiceService
 from app.services.session_service import SessionService
+from app.services.esp32_gateway import Esp32GatewayError
 from app.services.smart_home_service import SmartHomeService, get_smart_home_service
 
 logger = logging.getLogger(__name__)
@@ -635,7 +636,27 @@ class GeminiService:
 
             if name == "turn_on_light":
                 location = args.get("location", "")
-                state = self.smart_home_service.turn_on_light(location)
+                try:
+                    state = await asyncio.to_thread(
+                        self.smart_home_service.turn_on_light, location
+                    )
+                except (Esp32GatewayError, ValueError) as exc:
+                    await self._send_safely(
+                        websocket,
+                        {
+                            "type": "smart_home_light_error",
+                            "location": location,
+                            "message": str(exc),
+                        },
+                    )
+                    responses.append(
+                        types.FunctionResponse(
+                            id=function_call.id,
+                            name=name,
+                            response={"result": "error", "message": str(exc)},
+                        )
+                    )
+                    continue
                 await self._send_safely(
                     websocket,
                     {
@@ -658,7 +679,27 @@ class GeminiService:
 
             elif name == "turn_off_light":
                 location = args.get("location", "")
-                state = self.smart_home_service.turn_off_light(location)
+                try:
+                    state = await asyncio.to_thread(
+                        self.smart_home_service.turn_off_light, location
+                    )
+                except (Esp32GatewayError, ValueError) as exc:
+                    await self._send_safely(
+                        websocket,
+                        {
+                            "type": "smart_home_light_error",
+                            "location": location,
+                            "message": str(exc),
+                        },
+                    )
+                    responses.append(
+                        types.FunctionResponse(
+                            id=function_call.id,
+                            name=name,
+                            response={"result": "error", "message": str(exc)},
+                        )
+                    )
+                    continue
                 await self._send_safely(
                     websocket,
                     {

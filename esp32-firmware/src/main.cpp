@@ -14,9 +14,9 @@ constexpr char DEVICE_STATUS_TOPIC[] = "smarthome/esp32/status";
 constexpr char DEVICE_GET_STATE_TOPIC[] = "smarthome/esp32/get-state";
 constexpr char ALL_LIGHTS_SET_TOPIC[] = "smarthome/lights/all/set";
 
-constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10'000;
-constexpr unsigned long MQTT_RETRY_INTERVAL_MS = 5'000;
-constexpr unsigned long WIFI_CONNECT_TIMEOUT_MS = 15'000;
+constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10000UL;
+constexpr unsigned long MQTT_RETRY_INTERVAL_MS = 5000UL;
+constexpr unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000UL;
 
 // Most 5 V relay boards are active LOW. Change this to false if your relay
 // switches on when its input is HIGH.

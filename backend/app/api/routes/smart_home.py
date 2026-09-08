@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, confloat, constr
 
+from app.services.esp32_gateway import DeviceCommandTimeoutError, DeviceUnavailableError
 from app.services.smart_home_service import LightState, MusicPlaybackState, get_smart_home_service
 
 
@@ -22,6 +23,7 @@ class LightRequest(BaseModel):
 class LightResponse(BaseModel):
     location: str
     is_on: bool
+    device_online: bool
 
 
 class MusicRequest(BaseModel):
@@ -59,7 +61,26 @@ class MusicSeekRequest(BaseModel):
 
 
 def _serialize_light(state: LightState) -> dict:
-    return {"location": state.location, "is_on": state.is_on}
+    return {
+        "location": state.location,
+        "is_on": state.is_on,
+        "device_online": state.device_online,
+    }
+
+
+def _control_light(location: str, turn_on: bool) -> LightState:
+    try:
+        return (
+            smart_home_service.turn_on_light(location)
+            if turn_on
+            else smart_home_service.turn_off_light(location)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DeviceUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except DeviceCommandTimeoutError as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
 
 
 @router.get("/lights", response_model=List[LightResponse])
@@ -75,13 +96,13 @@ def get_light(location: str) -> LightResponse:
 
 @router.post("/lights/on", response_model=LightResponse)
 def turn_on_light(payload: LightRequest) -> LightResponse:
-    state = smart_home_service.turn_on_light(payload.location)
+    state = _control_light(payload.location, True)
     return LightResponse(**_serialize_light(state))
 
 
 @router.post("/lights/off", response_model=LightResponse)
 def turn_off_light(payload: LightRequest) -> LightResponse:
-    state = smart_home_service.turn_off_light(payload.location)
+    state = _control_light(payload.location, False)
     return LightResponse(**_serialize_light(state))
 
 

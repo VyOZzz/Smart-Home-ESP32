@@ -23,3 +23,15 @@ yarn-error.log*
 
 # Temporary files
 *.log
+
+# Secrets and local device configuration
+.env
+.env.*
+!.env.example
+backend/.env
+esp32-firmware/include/config.h
+
+# Runtime state and local artifacts
+backend/data
+esp32-firmware/.pio
+.git

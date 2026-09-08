@@ -62,7 +62,7 @@ export function LightControlCard({ lights, lightLocation, onLightLocationChange,
                   <div className="space-y-1">
                     <p className="text-sm font-semibold tracking-wide text-foreground">{light.location}</p>
                     <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                      {light.is_on ? "Đang bật" : "Đang tắt"}
+                      {light.device_online ? (light.is_on ? "Đang bật" : "Đang tắt") : "ESP32 offline"}
                     </p>
                   </div>
                 </div>

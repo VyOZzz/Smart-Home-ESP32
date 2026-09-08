@@ -75,7 +75,7 @@ def play_audio_from_base64(base64_file_path):
 
 if __name__ == "__main__":
     # Đường dẫn đến file base64
-    base64_file = r"e:\BTL\BTL-IoT\data\fire_alert_audio.b64"
+    base64_file = r"/Users/vypham/Project/Smart-Home-ESP32/data/fire_alert_audio.b64"
     
     print("=" * 60)
     print("SCRIPT PHÁT ÂM THANH TỪ FILE BASE64")

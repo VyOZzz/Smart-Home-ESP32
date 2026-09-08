@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
@@ -8,12 +9,23 @@ from app.api.routes.websocket import router as websocket_router
 from app.api.routes.smart_home import router as smart_home_router
 from app.api.routes.assistant import router as assistant_router
 from app.core.logging_config import setup_logging
+from app.services.smart_home_service import get_smart_home_service
 
 
 def create_app() -> FastAPI:
     setup_logging()
 
-    app = FastAPI(title="IoT Smart Home Backend")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        del app
+        service = get_smart_home_service()
+        service.start()
+        try:
+            yield
+        finally:
+            service.stop()
+
+    app = FastAPI(title="IoT Smart Home Backend", lifespan=lifespan)
     app.include_router(websocket_router)
     app.include_router(smart_home_router)
     app.include_router(assistant_router)

@@ -1,6 +1,7 @@
 export interface LightState {
   location: string;
   is_on: boolean;
+  device_online: boolean;
 }
 
 export interface MusicPlaybackState {

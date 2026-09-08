@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, Literal
 
 from app.core.config import settings
+from app.services.esp32_gateway import Esp32Gateway
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 class LightState:
     location: str
     is_on: bool = False
+    device_online: bool = False
 
 
 class LightingService:
@@ -26,6 +28,7 @@ class LightingService:
         self.storage_path = storage_path or settings.light_state_file
         self.storage_path.parent.mkdir(parents=True, exist_ok=True)
         self._states: Dict[str, LightState] = {}
+        self._state_lock = threading.RLock()
         self._listeners: List[Tuple[asyncio.AbstractEventLoop, "asyncio.Queue[dict]"]] = []
         self._listener_lock = threading.Lock()
         self._load()
@@ -42,55 +45,50 @@ class LightingService:
         return defaults
 
     def _load(self) -> None:
-        if not self.storage_path.exists():
-            self._states = self._default_states()
-            self._persist()
-            return
-        try:
-            with self.storage_path.open("r", encoding="utf-8") as file:
-                payload = json.load(file)
-        except json.JSONDecodeError:
-            logger.warning("Corrupted light state file, recreating it with defaults")
-            self._states = self._default_states()
-            self._persist()
-            return
+        with self._state_lock:
+            defaults = self._default_states()
+            if not self.storage_path.exists():
+                self._states = defaults
+                self._persist()
+                return
+            try:
+                with self.storage_path.open("r", encoding="utf-8") as file:
+                    payload = json.load(file)
+            except json.JSONDecodeError:
+                logger.warning("Corrupted light state file, recreating it with defaults")
+                self._states = defaults
+                self._persist()
+                return
 
-        states: Dict[str, LightState] = {}
-        if isinstance(payload, dict):
-            for location_key, raw_state in payload.items():
-                if isinstance(raw_state, dict):
-                    name = raw_state.get("name", location_key)
-                    is_on = bool(raw_state.get("is_on"))
-                else:
-                    name = str(raw_state)
-                    is_on = bool(raw_state)
-                normalized_key = location_key.lower().strip()
-                states[normalized_key] = LightState(location=name, is_on=is_on)
-        else:
-            logger.warning("Unexpected light state format; recreating defaults")
-
-        if not states:
-            states = self._default_states()
-            self._persist()
-        else:
-            # ensure stable ordering by the display name
-            sorted_items = sorted(states.items(), key=lambda item: item[1].location.lower())
-            self._states = dict(sorted_items)
-            return
-
-        self._states = states
+            states: Dict[str, LightState] = {}
+            if isinstance(payload, dict):
+                for location_key, default_state in defaults.items():
+                    raw_state = payload.get(location_key, {})
+                    is_on = bool(raw_state.get("is_on")) if isinstance(raw_state, dict) else False
+                    states[location_key] = LightState(
+                        location=default_state.location,
+                        is_on=is_on,
+                        device_online=self._states.get(
+                            location_key, LightState(default_state.location)
+                        ).device_online,
+                    )
+            else:
+                logger.warning("Unexpected light state format; recreating defaults")
+                states = defaults
+            self._states = states
 
     def _persist(self) -> None:
-        with self.storage_path.open("w", encoding="utf-8") as file:
-            json.dump(
-                {
-                    loc: {"name": state.location, "is_on": state.is_on}
-                    for loc, state in self._states.items()
-                },
-                file,
-                ensure_ascii=False,
-                indent=2,
-            )
+        with self._state_lock:
+            with self.storage_path.open("w", encoding="utf-8") as file:
+                json.dump(
+                    {
+                        loc: {"name": state.location, "is_on": state.is_on}
+                        for loc, state in self._states.items()
+                    },
+                    file,
+                    ensure_ascii=False,
+                    indent=2,
+                )
 
     # ------------------------------------------------------------------
     # Observer helpers
@@ -143,6 +141,28 @@ class LightingService:
         logger.info("Light %s is now %s", location_key, "on" if state.is_on else "off")
         self._notify_listeners({"type": "update", "light": asdict(state)})
         return state
+
+    def apply_device_state(self, location: str, turn_on: bool) -> LightState:
+        """Store a state reported by the ESP32, never a requested state."""
+        self._load()
+        location_key = location.lower().strip()
+        with self._state_lock:
+            state = self._states.get(location_key, LightState(location=location))
+            state.location = location
+            state.is_on = turn_on
+            state.device_online = True
+            self._states[location_key] = state
+            self._persist()
+        logger.info("ESP32 confirmed %s -> %s", location_key, "on" if turn_on else "off")
+        self._notify_listeners({"type": "update", "light": asdict(state)})
+        return state
+
+    def set_device_online(self, online: bool) -> None:
+        self._load()
+        with self._state_lock:
+            for state in self._states.values():
+                state.device_online = online
+        self._notify_listeners({"type": "device_status", "online": online})
 
     def get_light_state(self, location: str) -> LightState:
         self._load()
@@ -275,9 +295,44 @@ class SmartHomeService:
         self,
         lighting_service: Optional[LightingService] = None,
         music_service: Optional[MusicService] = None,
+        esp32_gateway: Optional[Esp32Gateway] = None,
     ) -> None:
         self.lighting_service = lighting_service or LightingService()
         self.music_service = music_service or MusicService()
+        self._light_id_to_name = {
+            "living-room": "Phòng khách",
+            "bedroom": "Phòng ngủ",
+            "kitchen": "Nhà bếp",
+            "balcony": "Ban công",
+        }
+        self._location_aliases = {
+            "living-room": "living-room",
+            "phòng khách": "living-room",
+            "phong khach": "living-room",
+            "bedroom": "bedroom",
+            "phòng ngủ": "bedroom",
+            "phong ngu": "bedroom",
+            "kitchen": "kitchen",
+            "nhà bếp": "kitchen",
+            "nha bep": "kitchen",
+            "bếp": "kitchen",
+            "bep": "kitchen",
+            "balcony": "balcony",
+            "ban công": "balcony",
+            "ban cong": "balcony",
+        }
+        self.esp32_gateway = esp32_gateway or Esp32Gateway(
+            host=settings.mqtt_host,
+            port=settings.mqtt_port,
+            client_id=settings.mqtt_client_id,
+            username=settings.mqtt_username,
+            password=settings.mqtt_password,
+            command_timeout=settings.mqtt_command_timeout_seconds,
+            on_state=self._handle_esp32_state,
+            on_status=self.lighting_service.set_device_online,
+        )
+        self.esp32_gateway.on_state = self._handle_esp32_state
+        self.esp32_gateway.on_status = self.lighting_service.set_device_online
         self._music_playback_state = MusicPlaybackState()
         self._music_listeners: List[
             Tuple[asyncio.AbstractEventLoop, "asyncio.Queue[dict]"]
@@ -285,10 +340,36 @@ class SmartHomeService:
         self._music_listener_lock = threading.Lock()
 
     def turn_on_light(self, location: str) -> LightState:
-        return self.lighting_service.toggle_light(location, True)
+        return self._set_light(location, True)
 
     def turn_off_light(self, location: str) -> LightState:
-        return self.lighting_service.toggle_light(location, False)
+        return self._set_light(location, False)
+
+    def start(self) -> None:
+        self.esp32_gateway.start()
+
+    def stop(self) -> None:
+        self.esp32_gateway.stop()
+
+    def _resolve_light(self, location: str) -> tuple[str, str]:
+        normalized = location.strip().lower()
+        light_id = self._location_aliases.get(normalized)
+        if not light_id:
+            raise ValueError(f"Thiết bị không được hỗ trợ: {location.strip() or '(trống)'}")
+        return light_id, self._light_id_to_name[light_id]
+
+    def _set_light(self, location: str, turn_on: bool) -> LightState:
+        light_id, display_name = self._resolve_light(location)
+        self.esp32_gateway.set_light(light_id, turn_on)
+        return self.lighting_service.get_light_state(display_name)
+
+    def _handle_esp32_state(self, light_id: str, turn_on: bool, payload: dict) -> None:
+        del payload
+        display_name = self._light_id_to_name.get(light_id)
+        if not display_name:
+            logger.warning("Ignoring state for unknown ESP32 light id: %s", light_id)
+            return
+        self.lighting_service.apply_device_state(display_name, turn_on)
 
     def _notify_music_listeners(self, payload: dict) -> None:
         with self._music_listener_lock:

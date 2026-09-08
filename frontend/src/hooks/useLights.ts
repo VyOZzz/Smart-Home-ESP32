@@ -19,7 +19,8 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
       .filter((light): light is LightState => Boolean(light && light.location))
       .map((light) => ({
         location: light.location,
-        is_on: Boolean(light.is_on)
+        is_on: Boolean(light.is_on),
+        device_online: Boolean(light.device_online)
       }));
     const unique = new Map(validLights.map((light) => [normalizeLocation(light.location), light]));
     setLights(sortLights(Array.from(unique.values())));
@@ -31,7 +32,8 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
       const map = new Map(previous.map((item) => [normalizeLocation(item.location), item]));
       map.set(normalizeLocation(light.location), {
         location: light.location,
-        is_on: Boolean(light.is_on)
+        is_on: Boolean(light.is_on),
+        device_online: Boolean(light.device_online)
       });
       return sortLights(Array.from(map.values()));
     });
@@ -97,6 +99,10 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
               applyLightSnapshot(payload.lights);
             } else if (payload.type === "update" && payload.light) {
               applyLightUpdate(payload.light as LightState);
+            } else if (payload.type === "device_status") {
+              setLights((previous) =>
+                previous.map((light) => ({ ...light, device_online: Boolean(payload.online) }))
+              );
             }
           } catch (error) {
             console.error("Không thể phân tích dữ liệu websocket", error);

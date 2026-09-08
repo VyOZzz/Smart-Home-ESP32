@@ -9,7 +9,7 @@
   },
   "nhà tắm": {
     "name": "nhà tắm",
-    "is_on": true
+    "is_on": false
   },
   "phòng khách": {
     "name": "phòng khách",

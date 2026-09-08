@@ -668,5 +668,25 @@
     "role": "assistant",
     "text": "Đã bật bài hát \"Nơi Này Có Anh\" rồi ạ.",
     "timestamp": "2025-11-06T10:55:19.307424"
+  },
+  {
+    "role": "user",
+    "text": "xin chào",
+    "timestamp": "2026-09-06T15:14:27.525212"
+  },
+  {
+    "role": "assistant",
+    "text": "Chào bạn! Mình là trợ lý ảo của nhà thông minh Nha Thong Minh. Bạn có cần mình giúp gì hôm nay không? Ví dụ như bật/tắt đèn hoặc mở nhạc chẳng hạn.",
+    "timestamp": "2026-09-06T15:14:37.237606"
+  },
+  {
+    "role": "user",
+    "text": "Tắt đèn nhà tắm cho tôi.",
+    "timestamp": "2026-09-06T15:15:07.511575"
+  },
+  {
+    "role": "assistant",
+    "text": "OK, mình đã tắt đèn nhà tắm cho bạn rồi nhé. Bạn có cần giúp gì nữa không?",
+    "timestamp": "2026-09-06T15:15:07.515882"
   }
 ]

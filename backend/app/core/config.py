@@ -116,13 +116,26 @@ class Settings:
             "FIRE_ALERT_AUDIO_FILE", Path("data") / "fire_alert_audio.b64"
         )
     )
+    mqtt_host: str = field(default_factory=lambda: _env_str("MQTT_HOST", "localhost"))
+    mqtt_port: int = field(default_factory=lambda: _env_int("MQTT_PORT", 1883))
+    mqtt_client_id: str = field(
+        default_factory=lambda: _env_str("MQTT_CLIENT_ID", "smarthome-backend")
+    )
+    mqtt_username: Optional[str] = field(
+        default_factory=lambda: _env_str("MQTT_USERNAME", None)
+    )
+    mqtt_password: Optional[str] = field(
+        default_factory=lambda: _env_str("MQTT_PASSWORD", None)
+    )
+    mqtt_command_timeout_seconds: float = field(
+        default_factory=lambda: max(0.1, _env_float("MQTT_COMMAND_TIMEOUT_SECONDS", 3.0))
+    )
     default_lights: tuple[tuple[str, bool], ...] = field(
         default_factory=lambda: (
-            ("Phòng khách", True),
+            ("Phòng khách", False),
             ("Phòng ngủ", False),
-            ("Nhà bếp", True),
+            ("Nhà bếp", False),
             ("Ban công", False),
-            ("Nhà tắm", True),
         )
     )
 

@@ -389,8 +389,14 @@ export const useGeminiRealtime = ({
                 role: "system",
                 content: `Đèn tại “${location}” hiện đang ${isOn ? "bật" : "tắt"}.`
               });
-              onLightUpdate({ location, is_on: isOn });
+              onLightUpdate({ location, is_on: isOn, device_online: true });
             }
+            return;
+          }
+          case "smart_home_light_error": {
+            const message = typeof data.message === "string" ? data.message : "Không điều khiển được ESP32";
+            appendChatMessage({ role: "system", content: message });
+            showFeedback(message, true);
             return;
           }
           case "smart_home_music": {
