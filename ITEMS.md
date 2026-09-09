@@ -1,19 +1,21 @@
 # Phần cứng của project
 
-Project học tập hiện dùng **MacBook + ESP32 + bốn LED**.
+Project học tập hiện dùng **MacBook + camera IP trong nhà + ESP32 DevKit + bốn LED**.
 
-## Đã đủ để chạy demo
+## Phần cứng cần cho demo
 
 - MacBook chạy Docker, MQTT broker, backend, frontend và Gemini.
-- Camera, microphone và loa tích hợp trên MacBook.
+- Camera IP giám sát đang treo trong nhà, có luồng RTSP truy cập được trong LAN.
+  Cần xác nhận hãng/model và khả năng bật RTSP trước khi chốt cấu hình.
+- Microphone và loa tích hợp trên MacBook.
 - Một bo ESP32 và cáp USB truyền dữ liệu.
 - Một breadboard.
 - Bốn LED (có thể chọn bốn màu bất kỳ).
 - Bốn điện trở 330 Ω, mỗi LED dùng một điện trở riêng.
 - Dây jumper đực-đực.
 
-Không cần mua camera, microphone hoặc loa rời vì project sử dụng thiết bị tích
-hợp trên MacBook.
+Camera kết nối LAN/Wi-Fi với MacBook, dùng nguồn riêng theo thiết bị. Không nối
+camera vào ESP32 và không dùng camera MacBook. Microphone và loa MacBook vẫn dùng.
 
 ## Ánh xạ đèn
 
@@ -44,6 +46,13 @@ trước khi thay đổi dây nối.
 3. Cấp nguồn, thử lệnh `ON/OFF` cho phòng khách rồi rút USB.
 4. Lặp lại với GPIO 17, 18 và 19.
 5. Cấp nguồn lại và thử lần lượt cả bốn khu vực trên giao diện web.
+
+## Kết nối camera IP
+
+Camera IP → router LAN/Wi-Fi → FastAPI trên MacBook → OpenCV → web và loa MacBook.
+Camera dùng Ethernet hoặc Wi-Fi theo model; không chiếm GPIO của ESP32.
+Nếu thiết bị hỗ trợ ONVIF, có thể dùng thông tin profile để lấy URI RTSP;
+backend hiện đọc RTSP trực tiếp, chưa tự dò thiết bị ONVIF.
 
 ## Mở rộng tùy chọn
 

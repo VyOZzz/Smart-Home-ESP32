@@ -345,6 +345,32 @@ class SmartHomeService:
     def turn_off_light(self, location: str) -> LightState:
         return self._set_light(location, False)
 
+    def resolve_light_locations(self, location: str) -> list[str]:
+        """Return every supported room mentioned in one tool argument.
+
+        Gemini sometimes sends ``"ban công nhà bếp"`` as one location when the
+        user asks to control two lights. Keep the firmware protocol one command
+        per light, but make this boundary tolerant of that combined argument.
+        """
+        normalized = location.strip().lower()
+        exact_id = self._location_aliases.get(normalized)
+        if exact_id:
+            return [self._light_id_to_name[exact_id]]
+
+        mentioned_ids = {
+            light_id
+            for alias, light_id in self._location_aliases.items()
+            if alias in normalized
+        }
+        locations = [
+            display_name
+            for light_id, display_name in self._light_id_to_name.items()
+            if light_id in mentioned_ids
+        ]
+        if not locations:
+            raise ValueError(f"Thiết bị không được hỗ trợ: {location.strip() or '(trống)'}")
+        return locations
+
     def start(self) -> None:
         self.esp32_gateway.start()
 

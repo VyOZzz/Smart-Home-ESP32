@@ -1,19 +1,23 @@
+import asyncio
+
 from typing import List, Optional, Literal
 
 from mimetypes import guess_type
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, confloat, constr
 
 from app.services.esp32_gateway import DeviceCommandTimeoutError, DeviceUnavailableError
 from app.services.smart_home_service import LightState, MusicPlaybackState, get_smart_home_service
+from app.services.ip_camera_service import get_ip_camera_service
 
 
 router = APIRouter(prefix="/smart-home", tags=["smart-home"])
 
 smart_home_service = get_smart_home_service()
+camera_service = get_ip_camera_service()
 
 
 class LightRequest(BaseModel):
@@ -166,6 +170,64 @@ def stream_music(title: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="Không tìm được file bài hát phù hợp")
     media_type, _ = guess_type(file_path.name)
     return FileResponse(file_path, media_type=media_type or "audio/mpeg", filename=file_path.name)
+
+
+@router.get("/camera/status")
+def get_camera_status() -> dict:
+    return camera_service.status()
+
+
+@router.get("/camera/snapshot")
+def get_camera_snapshot() -> Response:
+    frame = camera_service.latest_frame
+    if frame is None:
+        raise HTTPException(status_code=503, detail="Camera IP chưa cung cấp khung hình")
+    return Response(
+        frame,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
+
+
+@router.get("/camera/stream")
+async def stream_camera() -> StreamingResponse:
+    async def generate_frames():
+        version = -1
+        while True:
+            try:
+                frame, version = await camera_service.wait_for_frame(version)
+            except RuntimeError:
+                await asyncio.sleep(0.5)
+                continue
+            yield (
+                b"--frame\r\nContent-Type: image/jpeg\r\n"
+                + f"Content-Length: {len(frame)}\r\n\r\n".encode("ascii")
+                + frame
+                + b"\r\n"
+            )
+
+    return StreamingResponse(
+        generate_frames(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.websocket("/camera/updates")
+async def stream_camera_updates(websocket: WebSocket) -> None:
+    await websocket.accept()
+    queue = await camera_service.add_listener()
+    try:
+        while True:
+            try:
+                payload = await asyncio.wait_for(queue.get(), timeout=20)
+            except asyncio.TimeoutError:
+                payload = {"type": "camera_status", **camera_service.status()}
+            await websocket.send_json(payload)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        camera_service.remove_listener(queue)
 
 
 @router.websocket("/lights/stream")

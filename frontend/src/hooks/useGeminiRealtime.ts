@@ -10,9 +10,6 @@ import {
 
 import {
   CAMERA_FRAME_INTERVAL_MS,
-  CAMERA_IMAGE_MIME_TYPE,
-  CAMERA_IMAGE_QUALITY,
-  CAMERA_MAX_DIMENSION,
   INPUT_SAMPLE_RATE,
   MAX_IMAGE_SIZE_BYTES,
   OUTPUT_SAMPLE_RATE,
@@ -51,12 +48,15 @@ export const useGeminiRealtime = ({
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const [isMicPermissionDenied, setIsMicPermissionDenied] = useState<boolean>(false);
   const [isCameraStreaming, setIsCameraStreaming] = useState<boolean>(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [cameraDimensions, setCameraDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>("Đang kết nối camera IP...");
+  const [cameraOnline, setCameraOnline] = useState(false);
+  const [alertAudioEnabled, setAlertAudioEnabled] = useState(false);
   const [cameraCaptureIntervalMs, setCameraCaptureIntervalMs] = useState<number>(CAMERA_FRAME_INTERVAL_MS);
 
   const geminiSocketRef = useRef<WebSocket | null>(null);
   const geminiReconnectTimer = useRef<number | null>(null);
+  const cameraSocketRef = useRef<WebSocket | null>(null);
+  const cameraReconnectTimer = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<number>(0);
   const playbackQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -70,35 +70,8 @@ export const useGeminiRealtime = ({
   const recordingGainNodeRef = useRef<GainNode | null>(null);
   const pendingInputSamplesRef = useRef<Float32Array | null>(null);
   const recordingWorkletContextRef = useRef<AudioContext | null>(null);
-  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
-  const cameraStreamRef = useRef<MediaStream | null>(null);
-  const cameraCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const cameraCaptureTimerRef = useRef<number | null>(null);
   const cameraSendingRef = useRef<boolean>(false);
-
-  const updateCameraDimensions = useCallback(() => {
-    const video = cameraVideoRef.current;
-    if (!video) {
-      return;
-    }
-
-    const { videoWidth, videoHeight } = video;
-    if (!videoWidth || !videoHeight) {
-      return;
-    }
-
-    const longestEdge = Math.max(videoWidth, videoHeight);
-    const scale = longestEdge > CAMERA_MAX_DIMENSION ? CAMERA_MAX_DIMENSION / longestEdge : 1;
-    const targetWidth = Math.max(1, Math.round(videoWidth * scale));
-    const targetHeight = Math.max(1, Math.round(videoHeight * scale));
-
-    setCameraDimensions((previous) => {
-      if (previous?.width === targetWidth && previous?.height === targetHeight) {
-        return previous;
-      }
-      return { width: targetWidth, height: targetHeight };
-    });
-  }, [setCameraDimensions]);
 
   const clearSelectedImage = useCallback(() => {
     setSelectedImage(null);
@@ -134,6 +107,17 @@ export const useGeminiRealtime = ({
     }
     return context;
   }, []);
+
+  const enableAlertAudio = useCallback(async () => {
+    const context = ensureAudioContext();
+    if (!context) return;
+    try {
+      await context.resume();
+      setAlertAudioEnabled(context.state === "running");
+    } catch {
+      setAlertAudioEnabled(false);
+    }
+  }, [ensureAudioContext]);
 
   const processAssistantAudio = useCallback(
     async (audioPayload: string | { data?: string; mime_type?: string; sample_rate?: number }) => {
@@ -358,6 +342,18 @@ export const useGeminiRealtime = ({
             }
             return;
           }
+          case "camera_status": {
+            const online = data.online === true;
+            setCameraOnline(online);
+            setCameraError(
+              online
+                ? null
+                : typeof data.last_error === "string"
+                  ? `Camera IP mất kết nối: ${data.last_error}`
+                  : "Camera IP đang offline."
+            );
+            return;
+          }
           case "tool_call": {
             const functionName = typeof data.function_name === "string" ? data.function_name : "unknown";
             appendChatMessage({
@@ -531,70 +527,36 @@ export const useGeminiRealtime = ({
       return;
     }
 
-    const video = cameraVideoRef.current;
-    if (!video || !cameraStreamRef.current) {
-      return;
-    }
-
-    const { videoWidth, videoHeight, readyState } = video;
-    if (!videoWidth || !videoHeight || readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-      return;
-    }
-
-    const canvas = cameraCanvasRef.current ?? document.createElement("canvas");
-    cameraCanvasRef.current = canvas;
-
-    const longestEdge = Math.max(videoWidth, videoHeight);
-    const scale = longestEdge > CAMERA_MAX_DIMENSION ? CAMERA_MAX_DIMENSION / longestEdge : 1;
-    const targetWidth = Math.max(1, Math.round(videoWidth * scale));
-    const targetHeight = Math.max(1, Math.round(videoHeight * scale));
-
-    if (canvas.width !== targetWidth) {
-      canvas.width = targetWidth;
-    }
-    if (canvas.height !== targetHeight) {
-      canvas.height = targetHeight;
-    }
-
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-
-    context.drawImage(video, 0, 0, targetWidth, targetHeight);
-
     cameraSendingRef.current = true;
     try {
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob((result) => resolve(result), CAMERA_IMAGE_MIME_TYPE, CAMERA_IMAGE_QUALITY)
-      );
-      if (!blob) {
-        return;
-      }
+      const response = await fetch("/smart-home/camera/snapshot", { cache: "no-store" });
+      if (!response.ok) return;
+      const blob = await response.blob();
 
       if (blob.size > MAX_IMAGE_SIZE_BYTES) {
-        console.warn("Camera frame skipped because it exceeds the size limit");
+        console.warn("Khung hình camera IP bị bỏ qua vì vượt giới hạn dung lượng");
         return;
       }
 
       const buffer = await blob.arrayBuffer();
       const base64 = arrayBufferToBase64(buffer);
-      const mimeType = blob.type || CAMERA_IMAGE_MIME_TYPE;
+      const mimeType = blob.type || "image/jpeg";
 
       socket.send(
         JSON.stringify({
           realtime_input: {
             media_chunks: [
               {
-                mime_type: mimeType,
-                data: base64
+                mime_type: mimeType || "image/jpeg",
+                data: base64,
+                source: "ip-camera"
               }
             ]
           }
         })
       );
     } catch (error) {
-      console.error("Không thể gửi khung hình từ camera tới Gemini", error);
+      console.error("Không thể gửi khung hình camera IP tới Gemini", error);
     } finally {
       cameraSendingRef.current = false;
     }
@@ -608,87 +570,25 @@ export const useGeminiRealtime = ({
 
     cameraSendingRef.current = false;
 
-    const stream = cameraStreamRef.current;
-    if (stream) {
-      stream.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch {
-          // ignore stop errors
-        }
-      });
-      cameraStreamRef.current = null;
-    }
-
-    const video = cameraVideoRef.current;
-    if (video) {
-      try {
-        video.pause();
-      } catch {
-        // ignore pause errors
-      }
-      video.srcObject = null;
-    }
-
     setIsCameraStreaming(false);
-    setCameraDimensions(null);
   }, []);
 
   const startCameraStream = useCallback(async () => {
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-      const message = "Thiết bị không hỗ trợ camera.";
+    setCameraError(null);
+    try {
+      const response = await fetch("/smart-home/camera/status", { cache: "no-store" });
+      const status = await response.json() as { online?: boolean; last_error?: string };
+      if (!response.ok || !status.online) {
+        throw new Error(status.last_error || "Camera IP chưa kết nối");
+      }
+      setIsCameraStreaming(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể kết nối Camera IP.";
       setCameraError(message);
       showFeedback(message, true);
-      return;
-    }
-
-    setCameraError(null);
-
-    if (cameraCaptureTimerRef.current) {
-      window.clearInterval(cameraCaptureTimerRef.current);
-      cameraCaptureTimerRef.current = null;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: CAMERA_MAX_DIMENSION },
-          height: { ideal: CAMERA_MAX_DIMENSION }
-        },
-        audio: false
-      });
-
-      cameraStreamRef.current = stream;
-
-      const video = cameraVideoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        video.playsInline = true;
-        video.muted = true;
-        const playPromise = video.play();
-        if (playPromise) {
-          void playPromise.catch(() => undefined);
-        }
-      }
-
-      setIsCameraStreaming(true);
-      updateCameraDimensions();
-    } catch (error) {
-      console.error("Không thể bật camera", error);
-
-      if (error instanceof DOMException && error.name === "NotAllowedError") {
-        const message = "Truy cập camera bị từ chối. Vui lòng kiểm tra quyền của trình duyệt.";
-        setCameraError(message);
-        showFeedback(message, true);
-      } else {
-        const message = "Không thể bật camera. Vui lòng thử lại.";
-        setCameraError(message);
-        showFeedback(message, true);
-      }
-
       stopCameraStream();
     }
-  }, [captureAndSendCameraFrame, showFeedback, stopCameraStream, updateCameraDimensions]);
+  }, [showFeedback, stopCameraStream]);
 
   const toggleCameraStream = useCallback(() => {
     if (isCameraStreaming) {
@@ -908,6 +808,7 @@ export const useGeminiRealtime = ({
 
     try {
       const stream = await mediaDevices.getUserMedia({
+        video: false,
         audio: {
           channelCount: 1,
           sampleRate: INPUT_SAMPLE_RATE,
@@ -1037,33 +938,38 @@ export const useGeminiRealtime = ({
   }, [isRecording, startRecording, stopRecording]);
 
   useEffect(() => {
-    const video = cameraVideoRef.current;
-    if (!video) {
-      return;
-    }
-
-    const handleMetadata = () => {
-      updateCameraDimensions();
+    let isMounted = true;
+    const connectCameraUpdates = () => {
+      if (!isMounted || cameraSocketRef.current) return;
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      const socket = new WebSocket(`${protocol}://${window.location.host}/smart-home/camera/updates`);
+      cameraSocketRef.current = socket;
+      socket.addEventListener("message", (event) => {
+        try {
+          handleGeminiPayload(JSON.parse(event.data));
+        } catch (error) {
+          console.error("Không thể đọc cập nhật Camera IP", error);
+        }
+      });
+      socket.addEventListener("close", () => {
+        if (cameraSocketRef.current === socket) cameraSocketRef.current = null;
+        if (isMounted) {
+          setCameraOnline(false);
+          setCameraError("Mất kết nối cập nhật camera. Đang thử kết nối lại...");
+          cameraReconnectTimer.current = window.setTimeout(connectCameraUpdates, 3000);
+        }
+      });
+      socket.addEventListener("error", () => socket.close());
     };
-
-    video.addEventListener("loadedmetadata", handleMetadata);
-    video.addEventListener("resize", handleMetadata);
-    handleMetadata();
-
+    connectCameraUpdates();
     return () => {
-      video.removeEventListener("loadedmetadata", handleMetadata);
-      video.removeEventListener("resize", handleMetadata);
+      isMounted = false;
+      if (cameraReconnectTimer.current) window.clearTimeout(cameraReconnectTimer.current);
+      cameraReconnectTimer.current = null;
+      cameraSocketRef.current?.close();
+      cameraSocketRef.current = null;
     };
-  }, [updateCameraDimensions]);
-
-  useEffect(() => {
-    if (!isGeminiConnected && isCameraStreaming) {
-      const message = "Mất kết nối với Gemini. Camera đã tắt.";
-      setCameraError(message);
-      showFeedback(message, true);
-      stopCameraStream();
-    }
-  }, [isCameraStreaming, isGeminiConnected, showFeedback, stopCameraStream]);
+  }, [handleGeminiPayload]);
 
   useEffect(() => {
     if (!isGeminiConnected && isRecording) {
@@ -1192,11 +1098,12 @@ export const useGeminiRealtime = ({
     isMicPermissionDenied,
     chatContainerRef,
     imageInputRef,
-    cameraVideoRef,
     isCameraStreaming,
     toggleCameraStream,
     cameraError,
-    cameraDimensions
+    cameraOnline,
+    alertAudioEnabled,
+    enableAlertAudio
   };
 };
 

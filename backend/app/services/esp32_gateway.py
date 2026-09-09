@@ -201,7 +201,9 @@ class Esp32Gateway:
 
         if message.topic == self.STATUS_TOPIC:
             if isinstance(payload, dict) and isinstance(payload.get("online"), bool):
-                self._set_device_online(payload["online"])
+                # A retained online message is historical, not proof of liveness.
+                if not payload["online"] or not getattr(message, "retain", False):
+                    self._set_device_online(payload["online"])
                 if payload["online"]:
                     self.request_state()
             return
@@ -212,6 +214,10 @@ class Esp32Gateway:
             and isinstance(payload, dict)
             and isinstance(payload.get("on"), bool)
         ):
+            return
+
+        # Only a fresh device response can update state or acknowledge a command.
+        if getattr(message, "retain", False):
             return
 
         light_id = message.topic[

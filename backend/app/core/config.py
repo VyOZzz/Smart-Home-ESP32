@@ -10,7 +10,12 @@ from typing import Optional
 from dotenv import load_dotenv
 
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
+# Native FFmpeg errors can contain credential-bearing URLs.
+os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
+os.environ["OPENCV_LOG_LEVEL"] = "SILENT"
+os.environ.setdefault("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;tcp")
 
 
 def _env_path(name: str, default: Path) -> Path:
@@ -115,6 +120,23 @@ class Settings:
         default_factory=lambda: _env_path(
             "FIRE_ALERT_AUDIO_FILE", Path("data") / "fire_alert_audio.b64"
         )
+    )
+    home_camera_rtsp_url: str = field(
+        repr=False, default_factory=lambda: _env_str("HOME_CAMERA_RTSP_URL", "")
+    )
+    camera_capture_interval_seconds: float = field(
+        default_factory=lambda: max(
+            0.2, _env_float("CAMERA_CAPTURE_INTERVAL_SECONDS", 0.5)
+        )
+    )
+    camera_request_timeout_seconds: float = field(
+        default_factory=lambda: max(0.2, _env_float("CAMERA_REQUEST_TIMEOUT_SECONDS", 2.0))
+    )
+    camera_reconnect_interval_seconds: float = field(
+        default_factory=lambda: max(0.1, _env_float("CAMERA_RECONNECT_INTERVAL_SECONDS", 2.0))
+    )
+    camera_max_frame_bytes: int = field(
+        default_factory=lambda: max(1024, _env_int("CAMERA_MAX_FRAME_BYTES", 512_000))
     )
     mqtt_host: str = field(default_factory=lambda: _env_str("MQTT_HOST", "localhost"))
     mqtt_port: int = field(default_factory=lambda: _env_int("MQTT_PORT", 1883))

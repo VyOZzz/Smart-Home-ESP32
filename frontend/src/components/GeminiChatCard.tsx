@@ -18,6 +18,9 @@ interface GeminiChatCardProps {
   isCameraStreaming: boolean;
   toggleCameraStream: () => void;
   cameraError: string | null;
+  cameraOnline: boolean;
+  alertAudioEnabled: boolean;
+  enableAlertAudio: () => void;
   handleImageSelect: (event: ChangeEvent<HTMLInputElement>) => void;
   imageInputRef: React.RefObject<HTMLInputElement>;
   selectedImagePreview: string | null;
@@ -32,8 +35,6 @@ interface GeminiChatCardProps {
   onChatSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onChatKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   maxImageSize: number;
-  cameraVideoRef: React.RefObject<HTMLVideoElement>;
-  cameraDimensions: { width: number; height: number } | null;
 }
 
 export function GeminiChatCard({
@@ -46,6 +47,9 @@ export function GeminiChatCard({
   isCameraStreaming,
   toggleCameraStream,
   cameraError,
+  cameraOnline,
+  alertAudioEnabled,
+  enableAlertAudio,
   handleImageSelect,
   imageInputRef,
   selectedImagePreview,
@@ -59,9 +63,7 @@ export function GeminiChatCard({
   onChatInputChange,
   onChatSubmit,
   onChatKeyDown,
-  maxImageSize,
-  cameraVideoRef,
-  cameraDimensions
+  maxImageSize
 }: GeminiChatCardProps) {
   const aspectRatioStyle: CSSProperties = {
     aspectRatio: "4 / 3"
@@ -114,33 +116,32 @@ export function GeminiChatCard({
                 type="button"
                 variant={isCameraStreaming ? "default" : "secondary"}
                 onClick={toggleCameraStream}
-                disabled={!isGeminiConnected}
               >
-                {isCameraStreaming ? "Tắt camera" : "Bật camera"}
+                {isCameraStreaming ? "Ẩn camera" : "Xem camera IP"}
               </Button>
               <span className="text-xs text-muted-foreground">
                 {isCameraStreaming
-                  ? "Đang gửi hình ảnh từ camera tới Gemini"
-                  : "Nhấn để chia sẻ hình ảnh trực tiếp với Gemini"}
+                  ? "Đang xem camera IP; ảnh cũng được gửi tới Gemini khi Gemini online"
+                  : "Luồng ảnh lấy từ camera IP trong nhà qua backend"}
               </span>
             </div>
-            {!isGeminiConnected ? (
-              <span className="text-xs text-muted-foreground">Cần kết nối Gemini để sử dụng camera</span>
-            ) : null}
+            <span className="text-xs text-muted-foreground">Không sử dụng webcam MacBook</span>
           </div>
+          <p className="text-xs" role="status">Camera IP: {cameraOnline ? "Online" : "Offline"}</p>
+          <Button type="button" variant="secondary" onClick={enableAlertAudio}>
+            {alertAudioEnabled ? "Âm thanh cảnh báo đã bật" : "Bật âm thanh cảnh báo"}
+          </Button>
+          <p className="text-xs text-muted-foreground">Demo giáo dục, không thay thế đầu báo khói/nhiệt. Giữ web mở để nghe cảnh báo qua loa MacBook.</p>
           {cameraError ? <p className="text-xs text-destructive">{cameraError}</p> : null}
           <div className="relative mx-auto w-full max-w-md">
             <div className="relative w-full overflow-hidden" style={aspectRatioStyle}>
-              <video
-                ref={cameraVideoRef}
+              <img
+                src={isCameraStreaming && cameraOnline ? "/smart-home/camera/stream" : undefined}
+                alt="Luồng trực tiếp từ camera IP trong nhà"
                 className={cn(
                   "absolute inset-0 h-full w-full rounded-md border bg-black object-cover transition-opacity",
                   isCameraStreaming ? "opacity-100" : "pointer-events-none opacity-0"
                 )}
-                style={{ transform: "scaleX(-1)" }}
-                autoPlay
-                muted
-                playsInline
               />
               <div
                 className={cn(
@@ -148,7 +149,7 @@ export function GeminiChatCard({
                   isCameraStreaming ? "pointer-events-none opacity-0" : "opacity-100"
                 )}
               >
-                Camera đang tắt
+                Đang ẩn hình camera; backend vẫn phát hiện cháy
               </div>
             </div>
           </div>

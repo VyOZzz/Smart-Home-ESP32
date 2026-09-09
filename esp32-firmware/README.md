@@ -1,7 +1,8 @@
-# ESP32 light firmware
+# ESP32 DevKit: điều khiển bốn LED
 
-Firmware nhận lệnh MQTT và điều khiển bốn LED đại diện cho bốn phòng. Camera,
-microphone, loa, Gemini và nhận diện hình ảnh chạy trên MacBook.
+Firmware chỉ kết nối Wi-Fi/MQTT, điều khiển bốn LED và gửi xác nhận trạng thái.
+Camera IP truyền RTSP trực tiếp tới MacBook; không kết nối camera vào ESP32.
+Microphone, loa, Gemini và OpenCV chạy trên MacBook.
 
 ## Sơ đồ phần cứng hiện tại
 
@@ -44,3 +45,5 @@ Topic `/state` xác nhận trạng thái GPIO mà firmware đã đặt. Với m�
 tại, LED cung cấp phản hồi trực quan cho người dùng.
 
 Không đấu điện lưới vào breadboard hoặc ESP32.
+
+Build: `pio run -e esp32dev`. Không commit `include/config.h`.

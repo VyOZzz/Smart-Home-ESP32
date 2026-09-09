@@ -90,7 +90,7 @@ export const useMusicController = ({ showFeedback }: UseMusicControllerOptions) 
           // ignore pause errors
         }
         audioElement.autoplay = true;
-        audioElement.playsInline = true;
+        audioElement.setAttribute("playsinline", "");
         audioElement.preload = "auto";
         audioElement.src = absoluteUrl;
 

@@ -34,6 +34,34 @@ class GeminiCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(config.input_audio_transcription)
         self.assertIsNotNone(config.output_audio_transcription)
         self.assertIn("tiếng Việt", config.system_instruction)
+        self.assertIn("nhiều đèn", config.system_instruction)
+
+    async def test_combined_light_location_controls_every_mentioned_room(self):
+        self.service.smart_home_service = Mock()
+        self.service.smart_home_service.resolve_light_locations.return_value = [
+            "Nhà bếp", "Ban công"
+        ]
+        self.service.smart_home_service.turn_off_light.side_effect = [
+            SimpleNamespace(location="Nhà bếp", is_on=False),
+            SimpleNamespace(location="Ban công", is_on=False),
+        ]
+        self.service._send_safely = AsyncMock()
+        session = SimpleNamespace(send_tool_response=AsyncMock())
+        tool_call = SimpleNamespace(function_calls=[SimpleNamespace(
+            id="call-rooms", name="turn_off_light",
+            args={"location": "ban công nhà bếp"},
+        )])
+
+        await self.service._handle_tool_calls(None, session, tool_call)
+
+        self.assertEqual(
+            [call.args[0] for call in self.service.smart_home_service.turn_off_light.call_args_list],
+            ["Nhà bếp", "Ban công"],
+        )
+        updates = [call.args[1] for call in self.service._send_safely.await_args_list]
+        self.assertEqual([item["location"] for item in updates], ["Nhà bếp", "Ban công"])
+        response = session.send_tool_response.await_args.kwargs["function_responses"][0]
+        self.assertEqual(response.response["locations"], ["Nhà bếp", "Ban công"])
 
     async def test_multiple_text_turns_use_realtime_input(self):
         websocket = SimpleNamespace(receive_text=AsyncMock(side_effect=[

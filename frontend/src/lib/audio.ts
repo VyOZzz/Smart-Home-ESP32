@@ -141,7 +141,7 @@ export const decodeAudioChunk = async (
       : resampleFloat32(channelData, effectiveSampleRate, targetSampleRate);
 
   const audioBuffer = context.createBuffer(1, resampled.length, targetSampleRate);
-  audioBuffer.copyToChannel(resampled, 0);
+  audioBuffer.getChannelData(0).set(resampled);
   return audioBuffer;
 };
 

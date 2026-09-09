@@ -61,11 +61,12 @@ export default function App() {
     isMicPermissionDenied,
     chatContainerRef,
     imageInputRef,
-    cameraVideoRef,
     isCameraStreaming,
     toggleCameraStream,
     cameraError,
-    cameraDimensions
+    cameraOnline,
+    alertAudioEnabled,
+    enableAlertAudio
   } = useGeminiRealtime({
     showFeedback,
     onLightUpdate: applyLightUpdate,
@@ -120,6 +121,9 @@ export default function App() {
           isCameraStreaming={isCameraStreaming}
           toggleCameraStream={toggleCameraStream}
           cameraError={cameraError}
+          cameraOnline={cameraOnline}
+          alertAudioEnabled={alertAudioEnabled}
+          enableAlertAudio={enableAlertAudio}
           handleImageSelect={handleImageSelect}
           imageInputRef={imageInputRef}
           selectedImagePreview={selectedImagePreview}
@@ -134,8 +138,6 @@ export default function App() {
           onChatSubmit={handleChatSubmit}
           onChatKeyDown={handleChatKeyDown}
           maxImageSize={GEMINI_MAX_IMAGE_SIZE}
-          cameraVideoRef={cameraVideoRef}
-          cameraDimensions={cameraDimensions}
         />
 
         {feedback?.message && (

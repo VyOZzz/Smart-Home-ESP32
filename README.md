@@ -7,10 +7,10 @@ ESP32 đóng vai trò là bộ điều khiển thiết bị tại hiện trườ
 ## Phạm vi bản demo
 
 - MacBook chạy Docker Desktop, MQTT broker, backend và frontend.
-- Camera, microphone và loa tích hợp trên MacBook cung cấp hình ảnh, giọng nói
-  và âm thanh phản hồi.
-- ESP32 cùng bốn LED mô phỏng bốn đèn trong nhà. LED là thiết bị đầu ra thật của
-  mô hình, không phải trạng thái giả chỉ tồn tại trên giao diện.
+- Camera IP trong nhà truyền RTSP qua LAN/Wi-Fi cung cấp hình ảnh. Microphone và loa
+  tích hợp trên MacBook vẫn dùng cho giọng nói và âm thanh phản hồi.
+- ESP32 DevKit, camera IP riêng biệt và bốn LED là phần cứng hiện trường. LED là thiết bị
+  đầu ra thật của mô hình, không phải trạng thái giả chỉ tồn tại trên giao diện.
 - Danh sách thiết bị điều khiển gồm đúng bốn khu vực: phòng khách, phòng ngủ,
   nhà bếp và ban công.
 - Project không sử dụng Raspberry Pi, module công suất hoặc điện lưới.
@@ -23,8 +23,8 @@ ESP32 đóng vai trò là bộ điều khiển thiết bị tại hiện trườ
 - Tương tác với trợ lý Gemini bằng văn bản, giọng nói và hình ảnh.
 - Điều khiển thiết bị bằng câu lệnh tự nhiên, chẳng hạn như “Bật đèn phòng khách”.
 - Phát, tạm dừng, tiếp tục và tua nhạc từ thư viện trên máy chủ.
-- Phát hiện dấu hiệu cháy từ camera bằng OpenCV, hiển thị cảnh báo trên giao
-  diện và phát âm thanh cảnh báo qua loa MacBook.
+- Backend tự đọc luồng RTSP từ camera IP để phát hiện dấu hiệu cháy bằng
+  OpenCV, hiển thị cảnh báo và phát âm thanh qua loa MacBook.
 - Sử dụng trên cả trình duyệt web và ứng dụng Android.
 - Tự động kết nối lại Wi-Fi và MQTT khi đường truyền bị gián đoạn.
 - Khởi động các đầu ra GPIO ở trạng thái tắt.
@@ -32,21 +32,13 @@ ESP32 đóng vai trò là bộ điều khiển thiết bị tại hiện trườ
 ## Kiến trúc hệ thống
 
 ```text
-Camera + micro MacBook ──► Web React ──► WebSocket ──► Gemini Live
-                              │                            │
-                              │ HTTP/WebSocket             ├── Hội thoại
-                              ▼                            ├── Điều khiển đèn
-                       Backend FastAPI                     └── Phân tích hình ảnh
-                         ├── Nhạc và âm thanh cảnh báo
-                         ├── Phát hiện vùng màu lửa bằng OpenCV
-                         └── MQTT gateway
-                                │
-                         Eclipse Mosquitto
-                                │ Wi-Fi / MQTT
-                                ▼
-                              ESP32
-                                │
-                       4 LED + 4 điện trở 330 Ω
+Camera IP trong nhà → RTSP/LAN → FastAPI trên MacBook → OpenCV
+                                      ├→ JPEG/MJPEG → web
+                                      ├→ cảnh báo WebSocket → web + loa MacBook
+                                      └→ khung hình mới nhất → Gemini (khi cần)
+Web/API/Gemini → FastAPI → MQTT → ESP32 DevKit → 4 LED
+                              ← /state xác nhận ←
+Micro MacBook → web → Gemini → âm thanh → loa MacBook
 ```
 
 Khi điều khiển đèn, backend không cập nhật trạng thái theo yêu cầu gửi đi. Nó
@@ -69,10 +61,11 @@ có thể phân biệt lệnh đã được thiết bị thực thi với trạn
 ## Phần cứng
 
 - Một bo mạch ESP32.
+- Camera IP giám sát trong nhà có hỗ trợ RTSP trong LAN.
 - Một breadboard.
 - Bốn LED và bốn điện trở 330 Ω.
 - Dây jumper đực-đực.
-- Camera, micro và loa tích hợp trên MacBook.
+- Micro và loa tích hợp trên MacBook.
 
 Danh sách kiểm kê và sơ đồ đấu chi tiết nằm trong [ITEMS.md](ITEMS.md).
 
@@ -165,6 +158,32 @@ Sau đó cập nhật thông tin mạng trong `esp32-firmware/include/config.h`:
 ```
 
 `MQTT_HOST` phải là địa chỉ IPv4 LAN của máy đang chạy Mosquitto. Không sử dụng `localhost` hoặc `127.0.0.1` trong firmware vì các địa chỉ này sẽ trỏ về chính ESP32.
+
+### 4. Cấu hình camera IP
+
+Trước khi chốt đường dẫn RTSP, cần cung cấp **hãng và model camera**. Không gửi
+mật khẩu camera. Backend hiện dùng RTSP trực tiếp; ONVIF có thể giúp lấy URI
+stream theo profile của thiết bị, nhưng chưa có tự động khám phá ONVIF.
+
+Điền URL tại máy của bạn trong `backend/.env` (mẫu cú pháp, chưa phải cấu hình
+cho camera cụ thể):
+
+```env
+HOME_CAMERA_RTSP_URL=rtsp://user:password@192.168.1.100:554/<duong-dan-theo-model>
+CAMERA_CAPTURE_INTERVAL_SECONDS=0.5
+CAMERA_REQUEST_TIMEOUT_SECONDS=2
+CAMERA_RECONNECT_INTERVAL_SECONDS=2
+CAMERA_MAX_FRAME_BYTES=512000
+```
+
+Mã hóa phần trăm các ký tự đặc biệt trong tên đăng nhập/mật khẩu khi ghép URL.
+Giữ URL trống nếu chưa xác nhận model: web sẽ báo chưa cấu hình, không tự dùng
+camera MacBook. URL chỉ được backend đọc; API và frontend không trả URL này.
+Không ghi đè file `.env` đang có; chỉ bổ sung biến mới rồi khởi động lại backend.
+
+MacBook (và container backend) cần truy cập được IP/cổng RTSP của camera trong
+LAN. RTSP dùng TCP; ưu tiên substream độ phân giải thấp nếu khung JPEG quá lớn
+hoặc tải giải mã cao. Không dùng `localhost` làm địa chỉ camera.
 
 ESP32 và máy chủ phải kết nối cùng một mạng Wi-Fi. Đồng thời, cổng TCP `1883` cần được cho phép qua tường lửa của máy chủ.
 
@@ -292,8 +311,8 @@ Payload điều khiển hợp lệ gồm `ON`, `OFF`, `1`, `0`, `true`, `false`,
 3. Bật/tắt từng đèn trên web và đối chiếu LED vật lý với trạng thái giao diện.
 4. Nói “bật đèn phòng khách”; Gemini gọi công cụ điều khiển và LED GPIO 16 sáng.
 5. Yêu cầu phát một bài hát, sau đó thử tạm dừng và tiếp tục.
-6. Bật camera, đưa ảnh/video thử nghiệm có vùng giống ngọn lửa vào khung hình và
-   kiểm tra cảnh báo hình ảnh cùng âm thanh.
+6. Chọn **Xem camera IP**, hướng camera IP vào ảnh/video thử nghiệm có vùng
+   giống ngọn lửa và kiểm tra cảnh báo hình ảnh cùng âm thanh.
 7. Rút nguồn ESP32; giao diện phải báo offline và API phải từ chối lệnh mới.
 8. Cắm lại ESP32; thiết bị tự kết nối và backend đồng bộ lại bốn trạng thái.
 
@@ -303,7 +322,8 @@ Payload điều khiển hợp lệ gồm `ON`, `OFF`, `1`, `0`, `true`, `false`,
 - Lệnh từ nút web và Gemini đều làm đúng LED thay đổi.
 - Mỗi lệnh chỉ thành công sau khi có phản hồi `/state` từ ESP32.
 - Giao diện nhận cập nhật thời gian thực và hiển thị offline rõ ràng.
-- Camera, microphone, loa và trình phát nhạc hoạt động trên MacBook.
+- Camera IP qua backend cung cấp ảnh; trình duyệt không xin quyền webcam MacBook.
+- Microphone, loa và trình phát nhạc hoạt động trên MacBook.
 - Khởi động lại broker hoặc ESP32 không làm mất khả năng đồng bộ.
 
 ## Chạy ứng dụng Android
@@ -318,7 +338,7 @@ APP_WS_BASE_URL=ws://192.168.1.10:8000
 ```
 
 4. Chạy ứng dụng trên thiết bị Android hoặc máy ảo từ Android 7.0 (API 24) trở lên.
-5. Cấp quyền micro và camera khi ứng dụng yêu cầu.
+5. Cấp quyền micro khi dùng hội thoại giọng nói.
 
 ## API tiêu biểu
 
@@ -331,6 +351,10 @@ APP_WS_BASE_URL=ws://192.168.1.10:8000
 | `POST` | `/smart-home/music/play` | Phát bài hát |
 | `POST` | `/smart-home/music/pause` | Tạm dừng nhạc |
 | `POST` | `/smart-home/music/resume` | Tiếp tục phát nhạc |
+| `GET` | `/smart-home/camera/status` | Trạng thái camera IP |
+| `GET` | `/smart-home/camera/snapshot` | Khung JPEG mới nhất |
+| `GET` | `/smart-home/camera/stream` | Luồng MJPEG cho giao diện |
+| `WS` | `/smart-home/camera/updates` | Trạng thái và cảnh báo cháy |
 | `WS` | `/ws/gemini` | Giao tiếp thời gian thực với Gemini |
 | `WS` | `/smart-home/lights/stream` | Nhận cập nhật trạng thái đèn |
 
@@ -351,8 +375,10 @@ Không commit các file chứa thông tin nhạy cảm như:
   tra độ sáng của LED.
 - Nhận diện cháy dựa trên xử lý hình ảnh và chỉ mang tính minh họa học tập, không
   thay thế đầu báo cháy chuyên dụng.
-- Luồng camera hiện gắn với phiên WebSocket Gemini. Khi không mở phiên tương tác,
-  hệ thống không thực hiện giám sát cháy liên tục.
+- Camera là demo giáo dục: nhận diện dựa trên màu sắc có thể báo nhầm và không
+  thay thế đầu báo khói/nhiệt chuyên dụng.
+- Backend chỉ giám sát khi đang chạy và còn truy cập được camera IP trong mạng LAN;
+  đây không phải hệ thống an toàn hoạt động liên tục.
 - MQTT đang cho phép kết nối ẩn danh trong mạng LAN để thuận tiện trình diễn.
 
 ## Hướng phát triển
@@ -368,3 +394,22 @@ Không commit các file chứa thông tin nhạy cảm như:
 ## Giấy phép
 
 Dự án được xây dựng phục vụ mục đích học tập và nghiên cứu. Hãy bổ sung tệp giấy phép phù hợp trước khi phân phối hoặc sử dụng trong sản phẩm thương mại.
+
+## Kiểm tra camera IP
+
+- Chạy `python -m unittest discover -s backend/tests` từ gốc project.
+- Build web: `cd frontend && npm run build`.
+- Build firmware: `cd esp32-firmware && pio run -e esp32dev`.
+- Chạy backend, mở web: trạng thái camera phải hiện online và xem được MJPEG.
+- Ngắt mạng/nguồn camera: web báo offline, snapshot trả 503; bốn LED vẫn điều khiển được.
+- Khôi phục camera: backend tự kết nối lại, web nhận ảnh mới. Rút ESP32 chỉ làm
+  đèn offline, không ảnh hưởng camera.
+- Thử ảnh/video vùng màu giống lửa khi không mở phiên Gemini; kiểm tra cảnh báo
+  web và loa MacBook. Nhấn **Bật âm thanh cảnh báo** để trình duyệt cho phép phát
+  âm thanh; giữ trang web mở. Phát hiện vẫn chạy khi đóng web nhưng loa qua web
+  cần trang hoạt động. Đây là demo giáo dục, không thay thế đầu báo khói/nhiệt.
+
+Camera được đọc liên tục để tránh tồn đọng bộ đệm; khoảng lấy mẫu quy định tốc
+độ JPEG/OpenCV. Timeout giới hạn thao tác mở/đọc, lỗi được ẩn thông tin đăng nhập,
+khung lỗi hoặc quá hạn không được gửi cho web/Gemini. Phát hiện cháy dùng tác vụ
+riêng để không chặn việc lấy khung hình mới.

@@ -46,6 +46,10 @@ class GeminiService:
     3. Nếu người dùng muốn nghe nhạc, hãy gọi tool play_music và truyền tên bài hát họ nêu ra.
     4. Nếu người dùng yêu cầu tạm dừng nhạc, hãy gọi tool pause_music.
     5. Nếu người dùng yêu cầu bật lại nhạc đã tạm dừng, hãy gọi tool continue_music.
+    6. Hệ thống có đúng bốn vị trí: Phòng khách, Phòng ngủ, Nhà bếp, Ban công.
+    7. Khi người dùng yêu cầu nhiều đèn trong một câu, phải điều khiển tất cả
+       vị trí được nhắc đến. Có thể gọi tool một lần cho mỗi vị trí; không ghép
+       nhiều tên phòng thành một vị trí mới.
 
     Khi xử lý hình ảnh, mô tả chi tiết nội dung ảnh và liên hệ với ngữ cảnh căn nhà.
     Khi trả lời, hãy chia nhỏ nội dung thành các mục rõ ràng, dễ hiểu.
@@ -80,7 +84,7 @@ class GeminiService:
             self.conversation_history_file.write_text("[]", encoding="utf-8")
 
         self._captured_images_dir: Path = settings.captured_images_directory
-        self._capture_interval_seconds: float = settings.capture_interval_seconds
+        self._capture_interval_seconds: float = settings.camera_capture_interval_seconds
         if settings.save_captured_image:
             self._captured_images_dir.mkdir(parents=True, exist_ok=True)
 
@@ -581,7 +585,7 @@ class GeminiService:
         else:
             await session.send_realtime_input(video=media_blob)
 
-        if media_blob:
+        if media_blob and chunk.get("source") != "ip-camera":
             await self._maybe_handle_fire_detection(
                 websocket, payload_bytes, normalized_mime
             )
@@ -634,12 +638,20 @@ class GeminiService:
             name = function_call.name
             args = getattr(function_call, "args", {}) or {}
 
-            if name == "turn_on_light":
+            if name in {"turn_on_light", "turn_off_light"}:
                 location = args.get("location", "")
                 try:
-                    state = await asyncio.to_thread(
-                        self.smart_home_service.turn_on_light, location
+                    locations = self.smart_home_service.resolve_light_locations(location)
+                    action = (
+                        self.smart_home_service.turn_on_light
+                        if name == "turn_on_light"
+                        else self.smart_home_service.turn_off_light
                     )
+                    states = []
+                    for resolved_location in locations:
+                        states.append(
+                            await asyncio.to_thread(action, resolved_location)
+                        )
                 except (Esp32GatewayError, ValueError) as exc:
                     await self._send_safely(
                         websocket,
@@ -657,65 +669,23 @@ class GeminiService:
                         )
                     )
                     continue
-                await self._send_safely(
-                    websocket,
-                    {
-                        "type": "smart_home_light_update",
-                        "location": state.location,
-                        "is_on": state.is_on,
-                    },
-                )
-                responses.append(
-                    types.FunctionResponse(
-                        id=function_call.id,
-                        name=name,
-                        response={
-                            "result": "success",
-                            "location": state.location,
-                            "state": "on",
-                        },
-                    )
-                )
-
-            elif name == "turn_off_light":
-                location = args.get("location", "")
-                try:
-                    state = await asyncio.to_thread(
-                        self.smart_home_service.turn_off_light, location
-                    )
-                except (Esp32GatewayError, ValueError) as exc:
+                for state in states:
                     await self._send_safely(
                         websocket,
                         {
-                            "type": "smart_home_light_error",
-                            "location": location,
-                            "message": str(exc),
+                            "type": "smart_home_light_update",
+                            "location": state.location,
+                            "is_on": state.is_on,
                         },
                     )
-                    responses.append(
-                        types.FunctionResponse(
-                            id=function_call.id,
-                            name=name,
-                            response={"result": "error", "message": str(exc)},
-                        )
-                    )
-                    continue
-                await self._send_safely(
-                    websocket,
-                    {
-                        "type": "smart_home_light_update",
-                        "location": state.location,
-                        "is_on": state.is_on,
-                    },
-                )
                 responses.append(
                     types.FunctionResponse(
                         id=function_call.id,
                         name=name,
                         response={
                             "result": "success",
-                            "location": state.location,
-                            "state": "off",
+                            "locations": [state.location for state in states],
+                            "state": "on" if name == "turn_on_light" else "off",
                         },
                     )
                 )
