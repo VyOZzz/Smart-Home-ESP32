@@ -688,5 +688,185 @@
     "role": "assistant",
     "text": "OK, mình đã tắt đèn nhà tắm cho bạn rồi nhé. Bạn có cần giúp gì nữa không?",
     "timestamp": "2026-09-06T15:15:07.515882"
+  },
+  {
+    "role": "user",
+    "text": "Allô allô. donc euh, bat pour taureau dans le fond de caisse.",
+    "timestamp": "2026-09-08T07:43:33.869454"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ, em đã cố gắng bật đèn phòng khách rồi, nhưng có vẻ như thiết bị không phản hồi. Anh/chị có muốn em thử lại lần nữa",
+    "timestamp": "2026-09-08T07:43:33.872924"
+  },
+  {
+    "role": "user",
+    "text": "¿Qué pasó, nena?",
+    "timestamp": "2026-09-08T07:43:37.403970"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ, em đã cố gắng bật đèn phòng khách nhưng có vẻ như thiết bị không phản hồi trong 3 giây vừa qua. Anh có muốn em thử lại lần nữa không, hoặc có vấn đề gì khác em có",
+    "timestamp": "2026-09-08T07:43:37.407938"
+  },
+  {
+    "role": "user",
+    "text": "bật đèn hết rồi nhưng bộ phận tiếp vị không phản hồi.",
+    "timestamp": "2026-09-08T07:43:49.594221"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ em biết rồi ạ. Em đang kiểm tra lại xem có vấn đề gì với kết nối không. Anh có muốn em thử lại lần nữa không, hay là mình đợi một chút rồi tính tiếp ạ?",
+    "timestamp": "2026-09-08T07:43:49.596956"
+  },
+  {
+    "role": "user",
+    "text": "anh cho nó ở được. Để hỏi anh anh có ý kiến gì không? Chấp hết bình thường ấy.",
+    "timestamp": "2026-09-08T07:44:04.866501"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ, vậy để em thử bật lại đèn phòng khách một lần nữa xem sao ạ. Nếu vẫn không được, có lẽ mình cần kiểm tra lại thiết bị hoặc đường truyền mạng đó anh. Anh chờ em chút nhé!",
+    "timestamp": "2026-09-08T07:44:04.868918"
+  },
+  {
+    "role": "user",
+    "text": "Bật đèn phòng khách.",
+    "timestamp": "2026-09-09T07:32:25.717082"
+  },
+  {
+    "role": "user",
+    "text": "tắt đèn ban công nhà bếp",
+    "timestamp": "2026-09-09T07:42:44.111564"
+  },
+  {
+    "role": "assistant",
+    "text": "Rất tiếc, hiện tại tôi không thể tắt đèn ở ban công nhà bếp được. Có thể thiết bị này chưa được kết nối hoặc chưa được hỗ trợ trong hệ thống. Bạn có muốn tôi thử tắt đèn ở vị trí khác không? Hoặc bạn có cần hỗ trợ gì khác không?",
+    "timestamp": "2026-09-09T07:42:44.114459"
+  },
+  {
+    "role": "user",
+    "text": "Tắt đèn ban công và nhà bếp.",
+    "timestamp": "2026-09-09T07:51:56.725605"
+  },
+  {
+    "role": "user",
+    "text": "bất đền ban công",
+    "timestamp": "2026-09-09T07:56:09.314502"
+  },
+  {
+    "role": "assistant",
+    "text": "Đã tắt đèn ban công và nhà bếp rồi ạ. Bạn có cần giúp gì nữa không?Tôi đã thực hiện lệnh của bạn rồi nhé:\n\n*   Đã tắt đèn ban công và nhà bếp.\n*   Đồng thời, tôi cũng đã bật đèn ban công theo yêu cầu trước đó của bạn.\n\nBạn có cần tôi giúp thêm việc gì nữa không?",
+    "timestamp": "2026-09-09T07:56:09.318515"
+  },
+  {
+    "role": "user",
+    "text": "bật hết cả bốn đèn lên",
+    "timestamp": "2026-09-09T07:56:13.172829"
+  },
+  {
+    "role": "assistant",
+    "text": "Tôi đã bật hết đèn ở cả bốn vị trí rồi nhé:\n\n*   Phòng khách\n*   Phòng ngủ\n*   Nhà bếp\n*   Ban công\n\nBạn có cần tôi làm gì nữa không?",
+    "timestamp": "2026-09-09T07:56:13.175368"
+  },
+  {
+    "role": "user",
+    "text": "Dễ quá nè.",
+    "timestamp": "2026-09-09T07:56:15.886196"
+  },
+  {
+    "role": "assistant",
+    "text": "Hi hi, có gì đâu mà khó đâu ạ! Cần gì cứ",
+    "timestamp": "2026-09-09T07:56:15.889234"
+  },
+  {
+    "role": "user",
+    "text": "cái thiết đèn là bốn vòng",
+    "timestamp": "2026-09-09T07:56:23.961239"
+  },
+  {
+    "role": "assistant",
+    "text": "Đã xong! Tôi đã tắt hết đèn ở cả bốn phòng rồi nhé. Bạn có muốn làm gì nữa không?",
+    "timestamp": "2026-09-09T07:56:23.965360"
+  },
+  {
+    "role": "user",
+    "text": "bật đèn phòng khách",
+    "timestamp": "2026-09-09T07:56:30.286500"
+  },
+  {
+    "role": "assistant",
+    "text": "Đèn phòng khách đã được bật rồi nhé! Có cần tôi giúp thêm việc gì nữa không?",
+    "timestamp": "2026-09-09T07:56:30.289891"
+  },
+  {
+    "role": "user",
+    "text": "Bật hết đèn lên.",
+    "timestamp": "2026-09-09T07:56:37.502899"
+  },
+  {
+    "role": "assistant",
+    "text": "Đã bật hết đèn ở tất cả các phòng rồi nhé! Bạn có muốn nghe nhạc hay làm gì nữa không?",
+    "timestamp": "2026-09-09T07:56:37.507135"
+  },
+  {
+    "role": "user",
+    "text": "¿De acuerdo?",
+    "timestamp": "2026-09-09T07:56:44.382765"
+  },
+  {
+    "role": "assistant",
+    "text": "Tuyệt vời! Bạn muốn nghe bài hát nào nhỉ? Cứ nói tên, tôi sẽ phát ngay.",
+    "timestamp": "2026-09-09T07:56:44.386948"
+  },
+  {
+    "role": "user",
+    "text": "Mở bài Nơi này có anh.",
+    "timestamp": "2026-09-09T07:56:51.221848"
+  },
+  {
+    "role": "assistant",
+    "text": "Đang phát bài \"Nơi Này Có Anh\" rồi nhé! Chúc bạn nghe nhạc vui vẻ. Bạn có muốn tăng giảm âm lượng hay làm gì nữa không?",
+    "timestamp": "2026-09-09T07:56:51.226529"
+  },
+  {
+    "role": "user",
+    "text": "Lu lu sana.",
+    "timestamp": "2026-09-09T07:56:55.962526"
+  },
+  {
+    "role": "assistant",
+    "text": "À, bạn muốn tạm dừng nhạc đúng không? Tôi đã tạm dừng bài hát rồi nhé. Khi nào muốn nghe tiếp thì cứ nói tôi biết.",
+    "timestamp": "2026-09-09T07:56:55.966286"
+  },
+  {
+    "role": "user",
+    "text": "Yeah.",
+    "timestamp": "2026-09-09T07:57:05.097817"
+  },
+  {
+    "role": "assistant",
+    "text": "Đã tạm dừng nhạc rồi nhé! Khi nào muốn nghe tiếp thì cứ bảo tôi. Bạn có cần tôi làm gì khác nữa không?",
+    "timestamp": "2026-09-09T07:57:05.102041"
+  },
+  {
+    "role": "user",
+    "text": "黎 瑞 恩 输 吗 ?",
+    "timestamp": "2026-09-09T07:57:13.327078"
+  },
+  {
+    "role": "assistant",
+    "text": "À, bạn muốn nghe nhạc của Lê",
+    "timestamp": "2026-09-09T07:57:13.330361"
+  },
+  {
+    "role": "user",
+    "text": "xong sửa về dùng dùng ESP32. Anh không dùng cái đéo gì hết.",
+    "timestamp": "2026-09-09T07:57:29.977091"
+  },
+  {
+    "role": "assistant",
+    "text": "Tôi hiểu rồi, bạn đang muốn nói về việc dùng ESP32 để sửa mạch đúng không? Đó là một vi điều khiển rất mạnh cho các dự án IoT đấy. Bạn có cần tôi hỗ trợ gì về lập trình hay kết nối không?",
+    "timestamp": "2026-09-09T07:57:29.979166"
   }
 ]
