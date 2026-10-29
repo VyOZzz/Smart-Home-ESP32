@@ -3,6 +3,8 @@ import { useCallback, useState } from "react";
 import { LightControlCard } from "@/components/LightControlCard";
 import { GeminiChatCard } from "@/components/GeminiChatCard";
 import { MusicControlCard } from "@/components/MusicControlCard";
+import { EnvironmentCard } from "@/components/EnvironmentCard";
+import { useEnvironment } from "@/hooks/useEnvironment";
 import { GEMINI_MAX_IMAGE_SIZE, useGeminiRealtime } from "@/hooks/useGeminiRealtime";
 import { useLights } from "@/hooks/useLights";
 import { useMusicController } from "@/hooks/useMusicController";
@@ -23,6 +25,8 @@ export default function App() {
   const { lights, lightLocation, setLightLocation, handleLightAction, applyLightUpdate } = useLights({
     showFeedback
   });
+  const { environment, history: environmentHistory, isLoading: isEnvironmentLoading, connectionError } =
+    useEnvironment();
 
   const {
     musicState,
@@ -110,6 +114,13 @@ export default function App() {
             onTimeUpdate={setLiveMusicPosition}
           />
         </div>
+
+        <EnvironmentCard
+          environment={environment}
+          history={environmentHistory}
+          isLoading={isEnvironmentLoading}
+          connectionError={connectionError}
+        />
 
         <GeminiChatCard
           geminiStatus={geminiStatus}

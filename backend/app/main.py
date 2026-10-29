@@ -11,6 +11,7 @@ from app.api.routes.assistant import router as assistant_router
 from app.core.logging_config import setup_logging
 from app.services.smart_home_service import get_smart_home_service
 from app.services.ip_camera_service import get_ip_camera_service
+from app.services.environment_service import get_environment_service
 
 
 def create_app() -> FastAPI:
@@ -21,12 +22,15 @@ def create_app() -> FastAPI:
         del app
         service = get_smart_home_service()
         camera_service = get_ip_camera_service()
+        environment_service = get_environment_service()
         service.start()
+        environment_service.start()
         camera_service.start()
         try:
             yield
         finally:
             await camera_service.stop()
+            environment_service.stop()
             service.stop()
 
     app = FastAPI(title="IoT Smart Home Backend", lifespan=lifespan)

@@ -138,7 +138,7 @@ class Settings:
     camera_max_frame_bytes: int = field(
         default_factory=lambda: max(1024, _env_int("CAMERA_MAX_FRAME_BYTES", 512_000))
     )
-    mqtt_host: str = field(default_factory=lambda: _env_str("MQTT_HOST", "localhost"))
+    mqtt_host: str = field(default_factory=lambda: _env_str("MQTT_HOST", "mqtt"))
     mqtt_port: int = field(default_factory=lambda: _env_int("MQTT_PORT", 1883))
     mqtt_client_id: str = field(
         default_factory=lambda: _env_str("MQTT_CLIENT_ID", "smarthome-backend")
@@ -147,10 +147,58 @@ class Settings:
         default_factory=lambda: _env_str("MQTT_USERNAME", None)
     )
     mqtt_password: Optional[str] = field(
-        default_factory=lambda: _env_str("MQTT_PASSWORD", None)
+        repr=False, default_factory=lambda: _env_str("MQTT_PASSWORD", None)
+    )
+    mqtt_tls_enabled: bool = field(
+        default_factory=lambda: _env_bool("MQTT_TLS_ENABLED", False)
+    )
+    mqtt_tls_ca_cert: Optional[Path] = field(
+        default_factory=lambda: (
+            _env_path("MQTT_TLS_CA_CERT", Path(""))
+            if _env_str("MQTT_TLS_CA_CERT", "")
+            else None
+        )
+    )
+    mqtt_tls_certfile: Optional[Path] = field(
+        default_factory=lambda: (
+            _env_path("MQTT_TLS_CERTFILE", Path(""))
+            if _env_str("MQTT_TLS_CERTFILE", "")
+            else None
+        )
+    )
+    mqtt_tls_keyfile: Optional[Path] = field(
+        default_factory=lambda: (
+            _env_path("MQTT_TLS_KEYFILE", Path(""))
+            if _env_str("MQTT_TLS_KEYFILE", "")
+            else None
+        )
+    )
+    mqtt_tls_insecure: bool = field(
+        default_factory=lambda: _env_bool("MQTT_TLS_INSECURE", False)
     )
     mqtt_command_timeout_seconds: float = field(
         default_factory=lambda: max(0.1, _env_float("MQTT_COMMAND_TIMEOUT_SECONDS", 3.0))
+    )
+    environment_device_id: str = field(
+        default_factory=lambda: _env_str("ENVIRONMENT_DEVICE_ID", "esp32-sensor")
+    )
+    environment_sensor_id: str = field(
+        default_factory=lambda: _env_str("ENVIRONMENT_SENSOR_ID", "room-1")
+    )
+    environment_stale_after_seconds: float = field(
+        default_factory=lambda: max(
+            1.0, _env_float("ENVIRONMENT_STALE_AFTER_SECONDS", 30.0)
+        )
+    )
+    environment_history_db: Path = field(
+        default_factory=lambda: _env_path(
+            "ENVIRONMENT_HISTORY_DB", Path("data") / "environment_history.db"
+        )
+    )
+    environment_history_max_rows: int = field(
+        default_factory=lambda: max(
+            1, _env_int("ENVIRONMENT_HISTORY_MAX_ROWS", 10_000)
+        )
     )
     default_lights: tuple[tuple[str, bool], ...] = field(
         default_factory=lambda: (

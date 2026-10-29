@@ -51,6 +51,7 @@ backend/.venv/
 backend/__pycache__/
 backend/venv/
 backend/data/images/
+backend/data/*.db
 
 # Node.js & Frontend
 node_modules/
@@ -71,8 +72,11 @@ temp/
 tmp/
 cache/
 esp32-firmware/include/config.h
+environment-firmware/include/config.h
+esp32-sensor-firmware/include/config.h
 .pio/
 esp32-firmware/.pio/
+esp32-sensor-firmware/.pio/
 
 # OS files
 .DS_Store

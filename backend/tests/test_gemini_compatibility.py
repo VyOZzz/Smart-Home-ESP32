@@ -35,6 +35,40 @@ class GeminiCompatibilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(config.output_audio_transcription)
         self.assertIn("tiếng Việt", config.system_instruction)
         self.assertIn("nhiều đèn", config.system_instruction)
+        tool_names = {
+            declaration.name
+            for tool in config.tools
+            for declaration in tool.function_declarations
+        }
+        self.assertIn("get_environment", tool_names)
+
+    async def test_get_environment_tool_returns_latest_sensor_reading(self):
+        reading = {
+            "device_id": "esp32-environment",
+            "temperature_c": 27.5,
+            "humidity_percent": 62.0,
+            "online": True,
+            "stale": False,
+            "observed_at": "2026-10-27T10:00:00Z",
+            "last_error": None,
+        }
+        self.service.environment_service = Mock()
+        self.service.environment_service.current.return_value = reading
+        self.service._send_safely = AsyncMock()
+        session = SimpleNamespace(send_tool_response=AsyncMock())
+        tool_call = SimpleNamespace(function_calls=[SimpleNamespace(
+            id="call-environment", name="get_environment", args={},
+        )])
+
+        await self.service._handle_tool_calls(None, session, tool_call)
+
+        self.service._send_safely.assert_awaited_once_with(None, {
+            "type": "smart_home_environment",
+            "environment": reading,
+        })
+        response = session.send_tool_response.await_args.kwargs["function_responses"][0]
+        self.assertEqual(response.response["result"], "success")
+        self.assertEqual(response.response["temperature_c"], 27.5)
 
     async def test_combined_light_location_controls_every_mentioned_room(self):
         self.service.smart_home_service = Mock()

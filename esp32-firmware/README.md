@@ -25,13 +25,21 @@ Khi ESP32 khởi động, bốn LED được đặt về trạng thái tắt.
 ## Cấu hình và nạp firmware
 
 1. Sao chép `include/config.example.h` thành `include/config.h` nếu file chưa có.
-2. Điền Wi-Fi và IPv4 LAN của MacBook đang chạy MQTT broker.
+2. Điền Wi-Fi và cấu hình MQTT:
+   - Mosquitto trên MacBook: IP LAN, cổng `1883`, `MQTT_USE_TLS 0`.
+   - MQTT cloud: endpoint của nhà cung cấp, thường là cổng `8883`,
+     `MQTT_USE_TLS 1`, username/password và CA certificate.
 3. Cắm ESP32 bằng cáp USB truyền dữ liệu.
 4. Chạy PlatformIO Upload.
 5. Mở Serial Monitor ở `115200` baud.
 
 Không đặt `MQTT_HOST` thành `localhost`: trên ESP32, địa chỉ đó trỏ về chính
 ESP32. MacBook và ESP32 phải ở cùng mạng Wi-Fi.
+
+Khi dùng cloud, firmware xác thực chứng chỉ TLS theo `MQTT_CA_CERT`. Không bật
+`MQTT_TLS_ALLOW_INSECURE` trong bản demo chính thức. Các giá trị bí mật chỉ nằm
+trong `include/config.h`; file này đã được Git bỏ qua. Firmware tự đồng bộ giờ
+qua NTP trước khi mở kết nối TLS, vì vậy mạng phải cho phép truy cập Internet.
 
 ## MQTT protocol
 

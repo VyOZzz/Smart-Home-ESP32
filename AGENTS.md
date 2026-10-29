@@ -47,3 +47,21 @@ explicit new requirement.
   choosing a concrete RTSP path; never request the camera password.
 - Camera capture and fire detection must run without a Gemini session.
 - Serve JPEG/MJPEG through the backend; browser media access is microphone-only.
+
+## Prepared Level 6 extension
+
+- The repository also contains a prepared, optional second node in
+  `environment-firmware/`: one ESP32 DevKit and one DHT22 module with DATA on
+  GPIO 23. This node has not been added to the current physical demo until the
+  hardware is actually installed and tested.
+- Its MQTT device ID is `esp32-environment`; readings and availability use
+  `smarthome/environment/<device-id>/{state,status}`.
+- FastAPI ingests readings independently of Gemini, validates them, stores a
+  bounded SQLite history and exposes current/history/WebSocket APIs. Gemini may
+  only read the latest backend state through `get_environment`.
+- Both ESP32 firmwares and FastAPI support local MQTT without TLS and cloud MQTT
+  with TLS. Never commit cloud credentials, Wi-Fi credentials, CA secrets,
+  `backend/.env`, `esp32-firmware/include/config.h` or
+  `environment-firmware/include/config.h`.
+- Do not claim the optional node or cloud path has passed a physical test until
+  a real DHT22, second ESP32 and cloud account have been connected and verified.

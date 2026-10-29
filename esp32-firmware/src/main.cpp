@@ -1,10 +1,24 @@
 #include <Arduino.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 
 #include <cctype>
+#include <ctime>
 
 #include "config.h"
+
+#ifndef MQTT_USE_TLS
+#define MQTT_USE_TLS 0
+#endif
+
+#ifndef MQTT_TLS_ALLOW_INSECURE
+#define MQTT_TLS_ALLOW_INSECURE 0
+#endif
+
+#ifndef MQTT_CA_CERT
+#define MQTT_CA_CERT ""
+#endif
 
 namespace {
 
@@ -17,6 +31,8 @@ constexpr char ALL_LIGHTS_SET_TOPIC[] = "smarthome/lights/all/set";
 constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10000UL;
 constexpr unsigned long MQTT_RETRY_INTERVAL_MS = 5000UL;
 constexpr unsigned long WIFI_CONNECT_TIMEOUT_MS = 15000UL;
+constexpr unsigned long NTP_SYNC_TIMEOUT_MS = 10000UL;
+constexpr time_t MIN_VALID_UNIX_TIME = 1577836800;  // 2020-01-01 UTC
 
 // The learning setup wires LEDs from 3.3 V to each GPIO, so LOW turns them on.
 constexpr bool OUTPUT_ACTIVE_LOW = true;
@@ -36,10 +52,36 @@ LightChannel lights[] = {
 };
 
 WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
+WiFiClientSecure secureWifiClient;
+PubSubClient mqttClient;
 
 unsigned long lastWifiAttempt = 0;
 unsigned long lastMqttAttempt = 0;
+bool clockSynchronized = false;
+
+bool ensureClockForTls() {
+#if MQTT_USE_TLS && !MQTT_TLS_ALLOW_INSECURE
+  if (clockSynchronized && time(nullptr) >= MIN_VALID_UNIX_TIME) {
+    return true;
+  }
+
+  Serial.println("[TLS] Synchronizing clock with NTP...");
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  const unsigned long startedAt = millis();
+  while (time(nullptr) < MIN_VALID_UNIX_TIME &&
+         millis() - startedAt < NTP_SYNC_TIMEOUT_MS) {
+    delay(250);
+  }
+
+  clockSynchronized = time(nullptr) >= MIN_VALID_UNIX_TIME;
+  if (!clockSynchronized) {
+    Serial.println("[TLS] NTP sync failed; MQTT connection postponed.");
+  }
+  return clockSynchronized;
+#else
+  return true;
+#endif
+}
 
 void setLightOutput(LightChannel &light, bool turnOn) {
   light.isOn = turnOn;
@@ -171,6 +213,10 @@ void connectMqtt() {
     return;
   }
 
+  if (!ensureClockForTls()) {
+    return;
+  }
+
   char clientId[48];
   const uint64_t chipId = ESP.getEfuseMac();
   snprintf(clientId, sizeof(clientId), "%s-%04X", DEVICE_ID,
@@ -214,6 +260,16 @@ void setup() {
   delay(200);
   initializeLightOutputs();
 
+#if MQTT_USE_TLS
+#if MQTT_TLS_ALLOW_INSECURE
+  secureWifiClient.setInsecure();
+#else
+  secureWifiClient.setCACert(MQTT_CA_CERT);
+#endif
+  mqttClient.setClient(secureWifiClient);
+#else
+  mqttClient.setClient(wifiClient);
+#endif
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   mqttClient.setCallback(onMqttMessage);
   mqttClient.setBufferSize(512);

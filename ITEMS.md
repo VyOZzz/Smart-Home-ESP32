@@ -1,6 +1,6 @@
 # Phần cứng của project
 
-Project học tập hiện dùng **MacBook + camera IP trong nhà + ESP32 DevKit + bốn LED**.
+Project học tập hiện dùng **MacBook + camera IP + hai ESP32 DevKit + bốn LED + DHT11**.
 
 ## Phần cứng cần cho demo
 
@@ -8,10 +8,11 @@ Project học tập hiện dùng **MacBook + camera IP trong nhà + ESP32 DevKit
 - Camera IP giám sát đang treo trong nhà, có luồng RTSP truy cập được trong LAN.
   Cần xác nhận hãng/model và khả năng bật RTSP trước khi chốt cấu hình.
 - Microphone và loa tích hợp trên MacBook.
-- Một bo ESP32 và cáp USB truyền dữ liệu.
+- Hai bo ESP32 và cáp USB truyền dữ liệu.
 - Một breadboard.
 - Bốn LED (có thể chọn bốn màu bất kỳ).
 - Bốn điện trở 330 Ω, mỗi LED dùng một điện trở riêng.
+- Một module DHT11 3 chân.
 - Dây jumper đực-đực.
 
 Camera kết nối LAN/Wi-Fi với MacBook, dùng nguồn riêng theo thiết bị. Không nối
@@ -54,8 +55,38 @@ Camera dùng Ethernet hoặc Wi-Fi theo model; không chiếm GPIO của ESP32.
 Nếu thiết bị hỗ trợ ONVIF, có thể dùng thông tin profile để lấy URI RTSP;
 backend hiện đọc RTSP trực tiếp, chưa tự dò thiết bị ONVIF.
 
-## Mở rộng tùy chọn
+## ESP32 cảm biến đang dùng
 
-- Cảm biến nhiệt độ/độ ẩm, chuyển động, khí gas hoặc ánh sáng.
+| DHT11 | ESP32 thứ hai |
+| --- | --- |
+| `VCC/+` | `3V3` |
+| `GND/-` | `GND` |
+| `DATA/S/OUT` | `D4` / `GPIO4` |
+
+Node này dùng device ID `esp32-sensor`, sensor ID `room-1`, đọc mỗi 5 giây và
+không điều khiển bốn LED.
+
+## Mở rộng DHT22 tùy chọn
+
+Code cho node DHT22 thay thế đã được chuẩn bị trước. Có thể nạp thay firmware
+DHT11 trên ESP32 thứ hai, hoặc dùng thêm một ESP32 khác. Khi lắp thật cần:
+
+- Một ESP32 DevKit thứ hai và một cáp USB truyền dữ liệu.
+- Một module DHT22 loại 3 chân có sẵn điện trở kéo lên.
+- Ba dây jumper. Có thể cắm trực tiếp module vào dây; breadboard thứ hai chỉ
+  cần khi muốn cố định mô hình cho dễ trình bày.
+
+| DHT22 | ESP32 thứ hai |
+| --- | --- |
+| `VCC` | `3V3` |
+| `GND` | `GND` |
+| `DATA` | `GPIO 23` |
+
+Đọc đúng nhãn chân in trên module vì thứ tự chân có thể khác giữa các hãng.
+Node DHT22 gửi nhiệt độ/độ ẩm qua MQTT và không điều khiển bốn LED. Chưa được
+ghi trong báo cáo là đã test phần cứng cho đến khi board và cảm biến thật hoạt
+động.
+
+Các cảm biến chuyển động, khí gas hoặc ánh sáng vẫn là hướng mở rộng sau này.
 
 Không đấu điện lưới vào project học tập này.

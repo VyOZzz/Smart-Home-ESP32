@@ -15,6 +15,11 @@ ESP32 đóng vai trò là bộ điều khiển thiết bị tại hiện trườ
   nhà bếp và ban công.
 - Project không sử dụng Raspberry Pi, module công suất hoặc điện lưới.
 
+ESP32 thứ hai dùng module **DHT11** tại GPIO4 để gửi nhiệt độ/độ ẩm của Phòng 1
+qua MQTT. Backend lưu lịch sử SQLite và cập nhật card môi trường theo thời gian
+thực. Thư mục `environment-firmware/` vẫn là phần mở rộng DHT22 tùy chọn đã
+chuẩn bị; không coi node DHT22 hoặc MQTT cloud là đã kiểm thử vật lý.
+
 ## Tính năng chính
 
 - Bật hoặc tắt đèn độc lập tại phòng khách, phòng ngủ, nhà bếp và ban công.
@@ -38,6 +43,7 @@ Camera IP trong nhà → RTSP/LAN → FastAPI trên MacBook → OpenCV
                                       └→ khung hình mới nhất → Gemini (khi cần)
 Web/API/Gemini → FastAPI → MQTT → ESP32 DevKit → 4 LED
                               ← /state xác nhận ←
+ESP32 DevKit #2 + DHT11 GPIO4 → MQTT LAN → FastAPI → SQLite → web/Gemini
 Micro MacBook → web → Gemini → âm thanh → loa MacBook
 ```
 
@@ -60,12 +66,16 @@ có thể phân biệt lệnh đã được thiết bị thực thi với trạn
 
 ## Phần cứng
 
-- Một bo mạch ESP32.
+- Hai bo mạch ESP32 DevKit.
 - Camera IP giám sát trong nhà có hỗ trợ RTSP trong LAN.
 - Một breadboard.
 - Bốn LED và bốn điện trở 330 Ω.
-- Dây jumper đực-đực.
+- Một module DHT11 3 chân và dây jumper.
 - Micro và loa tích hợp trên MacBook.
+
+DHT11 dùng `VCC/+ → 3V3`, `DATA/S/OUT → D4 (GPIO4)` và `GND/- → GND`.
+Node DHT22 trong `environment-firmware/` là phần mở rộng tùy chọn riêng, chưa
+được xác nhận bằng phần cứng.
 
 Danh sách kiểm kê và sơ đồ đấu chi tiết nằm trong [ITEMS.md](ITEMS.md).
 
@@ -90,6 +100,8 @@ Smart-Home-ESP32/
 ├── android-app/       # Ứng dụng Android bằng Jetpack Compose
 ├── backend/           # API, WebSocket, Gemini và xử lý nghiệp vụ
 ├── esp32-firmware/    # Firmware điều khiển bốn LED qua ESP32
+├── esp32-sensor-firmware/ # Firmware ESP32 thứ hai + DHT11 GPIO4
+├── environment-firmware/ # Node DHT22 tùy chọn, chưa kiểm thử vật lý
 ├── frontend/          # Giao diện web React
 ├── mqtt/              # Cấu hình Eclipse Mosquitto
 ├── data/              # Dữ liệu dùng chung và âm thanh cảnh báo
@@ -132,7 +144,8 @@ Mở `backend/.env` và thay giá trị sau bằng API key của bạn:
 GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
 ```
 
-Khi chạy toàn bộ hệ thống bằng Docker Compose, `MQTT_HOST` sẽ tự động được đặt thành tên dịch vụ `mqtt`. Khi chạy backend trực tiếp trên máy, sử dụng:
+Docker Compose đặt `MQTT_HOST=mqtt`, là tên dịch vụ broker trong mạng Docker.
+Khi chạy backend trực tiếp trên máy với broker Docker, dùng:
 
 ```env
 MQTT_HOST=localhost
@@ -274,6 +287,72 @@ pio run --target upload
 pio device monitor --baud 115200
 ```
 
+## Nạp firmware ESP32 cảm biến DHT11
+
+Firmware riêng nằm trong `esp32-sensor-firmware/` và không thay đổi firmware
+điều khiển bốn đèn. Sao chép file mẫu rồi điền Wi-Fi và IPv4 LAN của MacBook:
+
+```bash
+cp esp32-sensor-firmware/include/config.example.h \
+  esp32-sensor-firmware/include/config.h
+cd esp32-sensor-firmware
+pio run -e esp32dev
+pio run -e esp32dev -t upload --upload-port /dev/cu.usbserial-XXXX
+pio device monitor --port /dev/cu.usbserial-XXXX --baud 115200
+```
+
+Nối `VCC → 3V3`, `GND → GND`, `DATA → D4/GPIO4`. Firmware đọc mỗi 5 giây,
+in Serial 115200, tự reconnect Wi-Fi/MQTT, gửi state retained và dùng retained
+Last Will để báo offline. Luôn chỉ định `--upload-port` sau khi kiểm tra danh
+sách `/dev/cu.*`, tránh nạp nhầm ESP32 điều khiển đèn.
+
+Trên MacBook, khởi động toàn bộ stack bằng:
+
+```bash
+docker compose up -d --build
+docker compose ps
+```
+
+Firmware ESP32 phải dùng IPv4 LAN của MacBook cho `MQTT_HOST`; không dùng
+`localhost`, `127.0.0.1` hoặc tên service `mqtt`. Chỉ backend trong Docker dùng
+`MQTT_HOST=mqtt`.
+
+Khi cần test không có board DHT11, chạy simulator:
+
+```bash
+python backend/scripts/environment_simulator.py --host localhost --interval 2
+```
+
+Mở <http://localhost:5173> để xem nhiệt độ, độ ẩm, trạng thái và biểu đồ. Dừng
+simulator bằng `Ctrl+C`; giao diện sẽ chuyển sang offline hoặc dữ liệu quá hạn.
+
+## Node ESP32 + DHT22 tùy chọn
+
+`environment-firmware/` là firmware DHT22 GPIO23 đã chuẩn bị cho mở rộng Level
+6. Đây là firmware thay thế/tùy chọn và chưa được xác nhận bằng phần cứng.
+
+## Chuyển từ MQTT LAN sang MQTT cloud
+
+Phần này áp dụng cho firmware đèn và node DHT22 tùy chọn vốn đã hỗ trợ TLS;
+firmware DHT11 hiện dùng broker LAN. Điền endpoint, cổng, username và password
+vào `backend/.env`, `esp32-firmware/include/config.h` và
+`environment-firmware/include/config.h`. Không commit các giá trị này.
+
+```dotenv
+MQTT_HOST=<cloud-endpoint>
+MQTT_PORT=8883
+MQTT_USERNAME=<username>
+MQTT_PASSWORD=<password>
+MQTT_TLS_ENABLED=True
+MQTT_TLS_INSECURE=False
+```
+
+Trên firmware đặt `MQTT_USE_TLS 1`, cổng theo nhà cung cấp và CA certificate
+được họ hướng dẫn. Backend Docker đọc trực tiếp các biến từ `backend/.env`;
+không còn khóa cứng host `mqtt`. Khi dùng broker Mosquitto trong Docker, giữ
+`MQTT_HOST=mqtt`, port `1883` và tắt TLS. Khi chạy FastAPI trực tiếp trên macOS
+với broker Docker, dùng `MQTT_HOST=localhost`.
+
 ## Kiểm tra MQTT
 
 Theo dõi toàn bộ message của hệ thống:
@@ -300,6 +379,9 @@ Các topic chính:
 | `smarthome/lights/all/set` | Điều khiển tất cả đèn |
 | `smarthome/esp32/get-state` | Yêu cầu ESP32 gửi lại toàn bộ trạng thái |
 | `smarthome/esp32/status` | Theo dõi trạng thái online/offline của ESP32 |
+| `smarthome/sensors/room-1/state` | Nhiệt độ/độ ẩm DHT11, retained |
+| `smarthome/esp32-sensor/status` | Online/offline của ESP32 cảm biến, retained + Last Will |
+| `smarthome/sensors/room-1/get-state` | Yêu cầu node DHT11 đọc và gửi ngay |
 
 Payload điều khiển hợp lệ gồm `ON`, `OFF`, `1`, `0`, `true`, `false`, `{"on":true}` và `{"on":false}`.
 
@@ -355,6 +437,9 @@ APP_WS_BASE_URL=ws://192.168.1.10:8000
 | `GET` | `/smart-home/camera/snapshot` | Khung JPEG mới nhất |
 | `GET` | `/smart-home/camera/stream` | Luồng MJPEG cho giao diện |
 | `WS` | `/smart-home/camera/updates` | Trạng thái và cảnh báo cháy |
+| `GET` | `/smart-home/environment` | Mẫu DHT11 mới nhất và trạng thái node |
+| `GET` | `/smart-home/environment/history` | Lịch sử nhiệt độ/độ ẩm cục bộ |
+| `WS` | `/smart-home/environment/updates` | Cập nhật môi trường thời gian thực |
 | `WS` | `/ws/gemini` | Giao tiếp thời gian thực với Gemini |
 | `WS` | `/smart-home/lights/stream` | Nhận cập nhật trạng thái đèn |
 
@@ -366,6 +451,8 @@ Không commit các file chứa thông tin nhạy cảm như:
 
 - `backend/.env`
 - `esp32-firmware/include/config.h`
+- `esp32-sensor-firmware/include/config.h`
+- `environment-firmware/include/config.h`
 - API key, mật khẩu Wi-Fi hoặc thông tin đăng nhập MQTT
 
 ## Giới hạn của bản demo
@@ -383,7 +470,10 @@ Không commit các file chứa thông tin nhạy cảm như:
 
 ## Hướng phát triển
 
-- Bổ sung cảm biến nhiệt độ, độ ẩm, khí gas và chuyển động.
+- Nếu cần Level 6, lắp và kiểm thử riêng node DHT22 trong
+  `environment-firmware/`; hiện chưa có xác nhận phần cứng cho node tùy chọn này.
+- Đưa cả hai ESP32 và backend lên cùng broker MQTT cloud có TLS rồi đo reconnect.
+- Bổ sung cảm biến khí gas và chuyển động.
 - Tích hợp lịch tự động bật/tắt thiết bị.
 - Gửi thông báo cháy và sự cố đến điện thoại.
 - Bổ sung xác thực người dùng và phân quyền thiết bị.

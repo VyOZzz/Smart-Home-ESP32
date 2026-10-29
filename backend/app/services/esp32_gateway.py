@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
 import threading
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -52,6 +53,11 @@ class Esp32Gateway:
         client_id: str,
         username: Optional[str] = None,
         password: Optional[str] = None,
+        tls_enabled: bool = False,
+        tls_ca_cert: Optional[str] = None,
+        tls_certfile: Optional[str] = None,
+        tls_keyfile: Optional[str] = None,
+        tls_insecure: bool = False,
         command_timeout: float = 3.0,
         on_state: Optional[StateHandler] = None,
         on_status: Optional[StatusHandler] = None,
@@ -75,6 +81,14 @@ class Esp32Gateway:
         )
         if username:
             self._client.username_pw_set(username, password)
+        if tls_enabled:
+            self._client.tls_set(
+                ca_certs=tls_ca_cert,
+                certfile=tls_certfile,
+                keyfile=tls_keyfile,
+                tls_version=ssl.PROTOCOL_TLS_CLIENT,
+            )
+            self._client.tls_insecure_set(tls_insecure)
         self._client.reconnect_delay_set(min_delay=1, max_delay=15)
         self._client.on_connect = self._on_connect
         self._client.on_disconnect = self._on_disconnect

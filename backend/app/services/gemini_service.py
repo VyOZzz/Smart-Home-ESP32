@@ -21,6 +21,7 @@ from app.services.fire_detection_service import FireDetectionService
 from app.services.notification_voice_service import NotificationVoiceService
 from app.services.session_service import SessionService
 from app.services.esp32_gateway import Esp32GatewayError
+from app.services.environment_service import EnvironmentService, get_environment_service
 from app.services.smart_home_service import SmartHomeService, get_smart_home_service
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,7 @@ class GeminiService:
     - play_music: phát bài hát gần giống nhất với tên được yêu cầu
     - pause_music: tạm dừng bài hát đang phát
     - continue_music: tiếp tục phát bài hát đã tạm dừng
+    - get_environment: đọc nhiệt độ, độ ẩm và trạng thái cảm biến mới nhất
 
     Quy tắc sử dụng tool:
     1. Nếu người dùng nhắc đến bật đèn, chiếu sáng, sáng đèn,... hãy gọi tool turn_on_light.
@@ -46,8 +48,10 @@ class GeminiService:
     3. Nếu người dùng muốn nghe nhạc, hãy gọi tool play_music và truyền tên bài hát họ nêu ra.
     4. Nếu người dùng yêu cầu tạm dừng nhạc, hãy gọi tool pause_music.
     5. Nếu người dùng yêu cầu bật lại nhạc đã tạm dừng, hãy gọi tool continue_music.
-    6. Hệ thống có đúng bốn vị trí: Phòng khách, Phòng ngủ, Nhà bếp, Ban công.
-    7. Khi người dùng yêu cầu nhiều đèn trong một câu, phải điều khiển tất cả
+    6. Nếu người dùng hỏi nhiệt độ, độ ẩm hoặc môi trường trong nhà, hãy gọi
+       tool get_environment và chỉ trả lời theo dữ liệu tool cung cấp.
+    7. Hệ thống có đúng bốn vị trí: Phòng khách, Phòng ngủ, Nhà bếp, Ban công.
+    8. Khi người dùng yêu cầu nhiều đèn trong một câu, phải điều khiển tất cả
        vị trí được nhắc đến. Có thể gọi tool một lần cho mỗi vị trí; không ghép
        nhiều tên phòng thành một vị trí mới.
 
@@ -61,6 +65,7 @@ class GeminiService:
         model: Optional[str] = None,
         session_service: Optional[SessionService] = None,
         smart_home_service: Optional[SmartHomeService] = None,
+        environment_service: Optional[EnvironmentService] = None,
         notification_voice_service: Optional[NotificationVoiceService] = None,
         fire_detection_service: Optional[FireDetectionService] = None,
         history_file: Optional[Path] = None,
@@ -71,6 +76,7 @@ class GeminiService:
         self.model = model or settings.gemini_model
         self.session_service = session_service or SessionService()
         self.smart_home_service = smart_home_service or get_smart_home_service()
+        self.environment_service = environment_service or get_environment_service()
         self.notification_voice_service = (
             notification_voice_service or NotificationVoiceService()
         )
@@ -690,6 +696,24 @@ class GeminiService:
                     )
                 )
 
+            elif name == "get_environment":
+                environment = self.environment_service.current()
+                payload = {
+                    "result": "success" if environment["online"] else "unavailable",
+                    **environment,
+                }
+                await self._send_safely(
+                    websocket,
+                    {"type": "smart_home_environment", "environment": environment},
+                )
+                responses.append(
+                    types.FunctionResponse(
+                        id=function_call.id,
+                        name=name,
+                        response=payload,
+                    )
+                )
+
             elif name == "play_music":
                 title = args.get("title", "")
                 matched = self.smart_home_service.play_music(title)
@@ -904,6 +928,18 @@ class GeminiService:
                         types.FunctionDeclaration(
                             name="continue_music",
                             description="Tiếp tục phát bài hát đã tạm dừng nếu có",
+                            parameters={
+                                "type": "object",
+                                "properties": {},
+                                "required": [],
+                            },
+                        ),
+                        types.FunctionDeclaration(
+                            name="get_environment",
+                            description=(
+                                "Đọc nhiệt độ, độ ẩm và trạng thái online mới nhất "
+                                "từ ESP32 gắn DHT22"
+                            ),
                             parameters={
                                 "type": "object",
                                 "properties": {},

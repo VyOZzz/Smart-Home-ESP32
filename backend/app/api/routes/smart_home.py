@@ -5,19 +5,21 @@ from typing import List, Optional, Literal
 from mimetypes import guess_type
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from pydantic import BaseModel, confloat, constr
 
 from app.services.esp32_gateway import DeviceCommandTimeoutError, DeviceUnavailableError
 from app.services.smart_home_service import LightState, MusicPlaybackState, get_smart_home_service
 from app.services.ip_camera_service import get_ip_camera_service
+from app.services.environment_service import get_environment_service
 
 
 router = APIRouter(prefix="/smart-home", tags=["smart-home"])
 
 smart_home_service = get_smart_home_service()
 camera_service = get_ip_camera_service()
+environment_service = get_environment_service()
 
 
 class LightRequest(BaseModel):
@@ -62,6 +64,21 @@ class MusicResponse(BaseModel):
 
 class MusicSeekRequest(BaseModel):
     position_seconds: confloat(ge=0)
+
+
+class EnvironmentResponse(BaseModel):
+    device_id: str
+    online: bool
+    temperature_c: Optional[float]
+    humidity_percent: Optional[float]
+    observed_at: Optional[str]
+    last_error: Optional[str]
+
+
+class EnvironmentHistoryItem(BaseModel):
+    temperature_c: float
+    humidity_percent: float
+    observed_at: str
 
 
 def _serialize_light(state: LightState) -> dict:
@@ -175,6 +192,35 @@ def stream_music(title: str) -> FileResponse:
 @router.get("/camera/status")
 def get_camera_status() -> dict:
     return camera_service.status()
+
+
+@router.get("/environment", response_model=EnvironmentResponse)
+def get_environment() -> EnvironmentResponse:
+    return EnvironmentResponse(**environment_service.current())
+
+
+@router.get("/environment/history", response_model=List[EnvironmentHistoryItem])
+def get_environment_history(
+    limit: int = Query(default=100, ge=1, le=1000),
+) -> List[EnvironmentHistoryItem]:
+    return [EnvironmentHistoryItem(**item) for item in environment_service.history(limit)]
+
+
+@router.websocket("/environment/updates")
+async def stream_environment_updates(websocket: WebSocket) -> None:
+    await websocket.accept()
+    queue = await environment_service.add_listener()
+    try:
+        while True:
+            try:
+                payload = await asyncio.wait_for(queue.get(), timeout=5)
+            except asyncio.TimeoutError:
+                payload = {"type": "environment", **environment_service.current()}
+            await websocket.send_json(payload)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        environment_service.remove_listener(queue)
 
 
 @router.get("/camera/snapshot")

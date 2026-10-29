@@ -95,3 +95,15 @@ class LightAcknowledgementTests(unittest.TestCase):
             service.resolve_light_locations("ban công và nhà bếp"),
             ["Nhà bếp", "Ban công"],
         )
+
+    def test_gateway_can_enable_verified_mqtt_tls(self):
+        with patch('app.services.esp32_gateway.mqtt.Client') as factory:
+            Esp32Gateway(
+                'example.emqxsl.com', 8883, 'tls-test',
+                username='device', password='secret',
+                tls_enabled=True, tls_ca_cert='ca.pem',
+            )
+        client = factory.return_value
+        client.username_pw_set.assert_called_once_with('device', 'secret')
+        self.assertEqual(client.tls_set.call_args.kwargs['ca_certs'], 'ca.pem')
+        client.tls_insecure_set.assert_called_once_with(False)
