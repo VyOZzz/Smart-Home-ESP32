@@ -1,120 +1,37 @@
-import { FormEvent } from "react";
+import type { FormEvent } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { HomeIcon } from "@/components/icons/HomeIcons";
 import { formatDuration } from "@/lib/format";
 import type { MusicPlaybackState } from "@/types/smart-home";
 
 interface MusicControlCardProps {
-  musicState: MusicPlaybackState | null;
-  liveMusicPosition: number;
-  musicTitle: string;
-  onMusicTitleChange: (value: string) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  audioPlayerRef: React.RefObject<HTMLAudioElement>;
-  currentSong: { title: string; url: string } | null;
-  sortedLibrary: string[];
-  onMusicPause: () => void;
-  onMusicPlay: () => void;
-  onTimeUpdate: (time: number) => void;
+  musicState: MusicPlaybackState | null; liveMusicPosition: number; musicTitle: string;
+  onMusicTitleChange: (value: string) => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  audioPlayerRef: React.RefObject<HTMLAudioElement>; currentSong: { title: string; url: string } | null;
+  sortedLibrary: string[]; onMusicPause: () => void; onMusicPlay: () => void; onTimeUpdate: (time: number) => void;
 }
 
-export function MusicControlCard({
-  musicState,
-  liveMusicPosition,
-  musicTitle,
-  onMusicTitleChange,
-  onSubmit,
-  audioPlayerRef,
-  currentSong,
-  sortedLibrary,
-  onMusicPause,
-  onMusicPlay,
-  onTimeUpdate
-}: MusicControlCardProps) {
+export function MusicControlCard({ musicState, liveMusicPosition, musicTitle, onMusicTitleChange, onSubmit, audioPlayerRef, currentSong, sortedLibrary, onMusicPause, onMusicPlay, onTimeUpdate }: MusicControlCardProps) {
+  const duration = musicState?.duration_seconds ?? 0;
+  const progress = duration > 0 ? Math.min((liveMusicPosition / duration) * 100, 100) : 0;
   return (
-    <Card className="flex flex-col">
-      <CardHeader>
-        <CardTitle>Phát nhạc</CardTitle>
-        <CardDescription>Yêu cầu backend phát bài hát mong muốn.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-6">
-        <form className="space-y-4" onSubmit={onSubmit}>
-          <div className="space-y-2">
-            <Label htmlFor="song-title">Tên bài hát</Label>
-            <Input
-              id="song-title"
-              value={musicTitle}
-              onChange={(event) => onMusicTitleChange(event.target.value)}
-              placeholder="Nhập tên bài hát muốn nghe"
-            />
-          </div>
-          <Button type="submit" className="w-full sm:w-auto">
-            Tìm và phát
-          </Button>
+    <section id="music" className="music-section" aria-labelledby="music-title">
+      <div className="record-art" aria-hidden="true"><span className="record-ring" /><HomeIcon name="music" /></div>
+      <div className="music-main">
+        <p className="eyebrow">Âm thanh trong nhà</p><h2 id="music-title">Một bản nhạc cho khoảnh khắc này.</h2>
+        <form className="music-search" onSubmit={onSubmit}>
+          <label htmlFor="song-title" className="sr-only">Tên bài hát</label>
+          <input id="song-title" value={musicTitle} onChange={(event) => onMusicTitleChange(event.target.value)} placeholder="Tìm một bài trong thư viện…" />
+          <button type="submit"><HomeIcon name="music" />Tìm & phát</button>
         </form>
-
-        <div className="space-y-3">
-          <div className="rounded-lg border bg-background p-4">
-            <p className="text-sm font-semibold">
-              {musicState?.matched_song
-                ? `${musicState.status === "paused" ? "Đang tạm dừng" : "Đang phát"}: ${musicState.matched_song}`
-                : "Chưa phát bài hát nào"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {musicState
-                ? (() => {
-                    const durationText = musicState.duration_seconds
-                      ? ` / ${formatDuration(musicState.duration_seconds)}`
-                      : "";
-                    return `Thời gian: ${formatDuration(liveMusicPosition)}${durationText}`;
-                  })()
-                : "Đang chờ trạng thái phát nhạc từ máy chủ."}
-            </p>
-            <audio
-              ref={audioPlayerRef}
-              className="mt-3 w-full"
-              autoPlay
-              playsInline
-              preload="auto"
-              controls
-              src={currentSong?.url}
-              onPause={() => {
-                onMusicPause();
-              }}
-              onPlay={() => {
-                onMusicPlay();
-              }}
-              onTimeUpdate={(event) => {
-                const element = event.currentTarget;
-                onTimeUpdate(element.currentTime);
-              }}
-            >
-              Trình duyệt của bạn không hỗ trợ phát nhạc.
-            </audio>
-            {!currentSong ? (
-              <p className="mt-2 text-xs text-muted-foreground">Yêu cầu một bài hát để bắt đầu phát nhạc.</p>
-            ) : null}
-          </div>
-
-          <h3 className="text-lg font-semibold">Thư viện hiện có</h3>
-          <div className="rounded-lg border bg-background p-4">
-            {sortedLibrary.length ? (
-              <ul className="grid gap-2">
-                {sortedLibrary.map((song) => (
-                  <li key={song} className="text-sm">
-                    {song}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">Thư viện trống</p>
-            )}
-          </div>
+        <div className="now-playing">
+          <div><span>{musicState?.status === "playing" ? "Đang phát" : musicState?.status === "paused" ? "Đang tạm dừng" : "Sẵn sàng"}</span><strong>{musicState?.matched_song ?? "Chưa chọn bài hát"}</strong></div>
+          <span className="music-time">{formatDuration(liveMusicPosition)} / {duration ? formatDuration(duration) : "--:--"}</span>
         </div>
-      </CardContent>
-    </Card>
+        <div className="progress-rail" aria-hidden="true"><span style={{ width: `${progress}%` }} /></div>
+        <audio ref={audioPlayerRef} controls autoPlay playsInline preload="auto" src={currentSong?.url} onPause={onMusicPause} onPlay={onMusicPlay} onTimeUpdate={(event) => onTimeUpdate(event.currentTarget.currentTime)}>Trình duyệt không hỗ trợ phát nhạc.</audio>
+      </div>
+      <aside className="music-library"><p>Thư viện trên MacBook</p><span>{sortedLibrary.length} bài có sẵn</span><div>{sortedLibrary.length ? sortedLibrary.map((song) => <button key={song} type="button" onClick={() => onMusicTitleChange(song)}>{song}</button>) : <em>Thư viện trống</em>}</div></aside>
+    </section>
   );
 }

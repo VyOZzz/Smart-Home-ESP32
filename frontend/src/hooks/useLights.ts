@@ -4,6 +4,14 @@ import { apiClient } from "@/lib/api-client";
 import { normalizeLocation, sortLights } from "@/lib/lights";
 import type { LightState } from "@/types/smart-home";
 
+export type LightConnectionState = "connecting" | "connected" | "reconnecting";
+
+export interface LightCommandState {
+  action: "on" | "off";
+  phase: "pending" | "error";
+  message?: string;
+}
+
 interface UseLightsOptions {
   showFeedback: (message: string, isError?: boolean) => void;
 }
@@ -11,6 +19,9 @@ interface UseLightsOptions {
 export const useLights = ({ showFeedback }: UseLightsOptions) => {
   const [lights, setLights] = useState<LightState[]>([]);
   const [lightLocation, setLightLocation] = useState<string>("");
+  const [connectionState, setConnectionState] = useState<LightConnectionState>("connecting");
+  const [backendOnline, setBackendOnline] = useState(true);
+  const [commands, setCommands] = useState<Record<string, LightCommandState>>({});
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<number | null>(null);
 
@@ -43,7 +54,9 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
     try {
       const data = await apiClient<LightState[]>("/smart-home/lights");
       applyLightSnapshot(data);
+      setBackendOnline(true);
     } catch (error) {
+      setBackendOnline(false);
       if (error instanceof Error) {
         showFeedback(error.message, true);
       }
@@ -51,12 +64,15 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
   }, [applyLightSnapshot, showFeedback]);
 
   const handleLightAction = useCallback(
-    async (action: "on" | "off") => {
-      const location = lightLocation.trim();
+    async (action: "on" | "off", requestedLocation?: string) => {
+      const location = (requestedLocation ?? lightLocation).trim();
       if (!location) {
         showFeedback("Vui lòng nhập vị trí đèn", true);
         return;
       }
+
+      const key = normalizeLocation(location);
+      setCommands((previous) => ({ ...previous, [key]: { action, phase: "pending" } }));
 
       try {
         const endpoint = action === "on" ? "/smart-home/lights/on" : "/smart-home/lights/off";
@@ -64,16 +80,27 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
           method: "POST",
           body: JSON.stringify({ location })
         });
-        showFeedback(`Đèn tại "${result.location}" hiện đang ${result.is_on ? "bật" : "tắt"}.`);
-        setLightLocation("");
-        refreshLights();
+        applyLightUpdate(result);
+        setBackendOnline(true);
+        setCommands((previous) => {
+          const next = { ...previous };
+          delete next[key];
+          return next;
+        });
+        showFeedback(`ESP32 đã xác nhận: ${result.location} ${result.is_on ? "đã bật" : "đã tắt"}.`);
+        if (!requestedLocation) setLightLocation("");
+        void refreshLights();
       } catch (error) {
         if (error instanceof Error) {
+          setCommands((previous) => ({
+            ...previous,
+            [key]: { action, phase: "error", message: error.message }
+          }));
           showFeedback(error.message, true);
         }
       }
     },
-    [lightLocation, refreshLights, showFeedback]
+    [applyLightUpdate, lightLocation, refreshLights, showFeedback]
   );
 
   useEffect(() => {
@@ -92,11 +119,18 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
         const socket = new WebSocket(`${protocol}://${window.location.host}/smart-home/lights/stream`);
         socketRef.current = socket;
 
+        socket.addEventListener("open", () => {
+          setConnectionState("connected");
+          setBackendOnline(true);
+          void refreshLights();
+        });
+
         socket.addEventListener("message", (event) => {
           try {
             const payload = JSON.parse(event.data);
             if (payload.type === "snapshot" && Array.isArray(payload.lights)) {
               applyLightSnapshot(payload.lights);
+              setCommands({});
             } else if (payload.type === "update" && payload.light) {
               applyLightUpdate(payload.light as LightState);
             } else if (payload.type === "device_status") {
@@ -113,6 +147,7 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
           if (socketRef.current === socket) {
             socketRef.current = null;
             if (isMounted) {
+              setConnectionState("reconnecting");
               reconnectTimer.current = window.setTimeout(connect, 3000);
             }
           }
@@ -122,6 +157,7 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
           socket.close();
         });
       } catch (error) {
+        setConnectionState("reconnecting");
         console.error("Không thể kết nối websocket", error);
       }
     };
@@ -137,7 +173,7 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
       socketRef.current?.close();
       socketRef.current = null;
     };
-  }, [applyLightSnapshot, applyLightUpdate]);
+  }, [applyLightSnapshot, applyLightUpdate, refreshLights]);
 
   return {
     lights,
@@ -145,6 +181,9 @@ export const useLights = ({ showFeedback }: UseLightsOptions) => {
     setLightLocation,
     handleLightAction,
     applyLightUpdate,
-    refreshLights
+    refreshLights,
+    commands,
+    connectionState,
+    backendOnline
   };
 };

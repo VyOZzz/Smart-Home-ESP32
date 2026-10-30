@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { HomeIcon } from "@/components/icons/HomeIcons";
 import { cn } from "@/lib/utils";
 import type { EnvironmentHistoryPoint, EnvironmentState } from "@/types/smart-home";
 
@@ -79,11 +79,12 @@ export function EnvironmentCard({ environment, history, isLoading, connectionErr
   }, [history]);
 
   return (
-    <Card>
-      <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
+    <section id="environment" className="environment-section" aria-labelledby="environment-title">
+      <header className="environment-head">
         <div className="space-y-1.5">
-          <CardTitle>Môi trường trong nhà</CardTitle>
-          <CardDescription>Nhiệt độ và độ ẩm Phòng 1 từ ESP32 + DHT11 qua MQTT.</CardDescription>
+          <p className="eyebrow">Mở rộng Level 6 · tùy chọn</p>
+          <h2 id="environment-title">Khí hậu trong nhà</h2>
+          <p>Chỉ hiển thị số đo thật khi node ESP32 + DHT22 đã gửi dữ liệu về backend.</p>
         </div>
         <div
           className={cn(
@@ -105,18 +106,20 @@ export function EnvironmentCard({ environment, history, isLoading, connectionErr
           />
           {isLoading ? "Đang tải…" : statusLabel}
         </div>
-      </CardHeader>
+      </header>
 
-      <CardContent className="grid gap-6 lg:grid-cols-[minmax(260px,0.75fr)_minmax(0,1.6fr)]">
+      <div className="environment-body">
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-amber-500/5 p-4">
+            <div className="climate-reading climate-reading--temperature">
+              <HomeIcon name="thermometer" />
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Nhiệt độ</p>
               <p className="mt-2 text-3xl font-bold tabular-nums text-orange-600 dark:text-orange-300">
                 {formatReading(environment.temperature_c, "°C")}
               </p>
             </div>
-            <div className="rounded-2xl border border-sky-500/20 bg-gradient-to-br from-sky-500/10 to-cyan-500/5 p-4">
+            <div className="climate-reading climate-reading--humidity">
+              <HomeIcon name="droplet" />
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">Độ ẩm</p>
               <p className="mt-2 text-3xl font-bold tabular-nums text-sky-600 dark:text-sky-300">
                 {formatReading(environment.humidity_percent, "%")}
@@ -142,7 +145,7 @@ export function EnvironmentCard({ environment, history, isLoading, connectionErr
           )}
         </div>
 
-        <div className="min-w-0 rounded-2xl border bg-muted/20 p-4">
+        <div className="climate-chart">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold">Lịch sử gần đây</p>
             <div className="flex gap-4 text-xs text-muted-foreground" aria-hidden="true">
@@ -191,7 +194,7 @@ export function EnvironmentCard({ environment, history, isLoading, connectionErr
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

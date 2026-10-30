@@ -1,261 +1,70 @@
-import { ChangeEvent, FormEvent, KeyboardEvent, type CSSProperties } from "react";
+import { type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { HomeIcon } from "@/components/icons/HomeIcons";
 import { formatFileSize } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/types/chat";
 
 interface GeminiChatCardProps {
-  geminiStatus: string;
-  isGeminiConnected: boolean;
-  isRecording: boolean;
-  toggleRecording: () => void;
-  isMicPermissionDenied: boolean;
-  recordingError: string | null;
-  isCameraStreaming: boolean;
-  toggleCameraStream: () => void;
-  cameraError: string | null;
-  cameraOnline: boolean;
-  alertAudioEnabled: boolean;
-  enableAlertAudio: () => void;
-  handleImageSelect: (event: ChangeEvent<HTMLInputElement>) => void;
-  imageInputRef: React.RefObject<HTMLInputElement>;
-  selectedImagePreview: string | null;
-  selectedImage: File | null;
-  clearSelectedImage: () => void;
-  sendSelectedImage: () => Promise<void> | void;
-  isUploadingImage: boolean;
-  chatMessages: ChatMessage[];
-  chatContainerRef: React.RefObject<HTMLDivElement>;
-  chatInput: string;
-  onChatInputChange: (value: string) => void;
-  onChatSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onChatKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
+  geminiStatus: string; isGeminiConnected: boolean; isRecording: boolean; toggleRecording: () => void;
+  isMicPermissionDenied: boolean; recordingError: string | null;
+  handleImageSelect: (event: ChangeEvent<HTMLInputElement>) => void; imageInputRef: React.RefObject<HTMLInputElement>;
+  selectedImagePreview: string | null; selectedImage: File | null; clearSelectedImage: () => void;
+  sendSelectedImage: () => Promise<void> | void; isUploadingImage: boolean; chatMessages: ChatMessage[];
+  chatContainerRef: React.RefObject<HTMLDivElement>; chatInput: string; onChatInputChange: (value: string) => void;
+  onChatSubmit: (event: FormEvent<HTMLFormElement>) => void; onChatKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   maxImageSize: number;
 }
 
-export function GeminiChatCard({
-  geminiStatus,
-  isGeminiConnected,
-  isRecording,
-  toggleRecording,
-  isMicPermissionDenied,
-  recordingError,
-  isCameraStreaming,
-  toggleCameraStream,
-  cameraError,
-  cameraOnline,
-  alertAudioEnabled,
-  enableAlertAudio,
-  handleImageSelect,
-  imageInputRef,
-  selectedImagePreview,
-  selectedImage,
-  clearSelectedImage,
-  sendSelectedImage,
-  isUploadingImage,
-  chatMessages,
-  chatContainerRef,
-  chatInput,
-  onChatInputChange,
-  onChatSubmit,
-  onChatKeyDown,
-  maxImageSize
-}: GeminiChatCardProps) {
-  const aspectRatioStyle: CSSProperties = {
-    aspectRatio: "4 / 3"
-  };
+export function GeminiChatCard(props: GeminiChatCardProps) {
+  const { geminiStatus, isGeminiConnected, isRecording, toggleRecording, isMicPermissionDenied, recordingError,
+    handleImageSelect, imageInputRef, selectedImagePreview, selectedImage, clearSelectedImage, sendSelectedImage,
+    isUploadingImage, chatMessages, chatContainerRef, chatInput, onChatInputChange, onChatSubmit, onChatKeyDown, maxImageSize } = props;
 
   return (
-    <Card className="flex flex-col">
-      <CardHeader>
-        <CardTitle>Trò chuyện với Gemini</CardTitle>
-        <CardDescription>
-          Gemini hỗ trợ giọng nói và văn bản nhờ cấu hình realtime của Gemini Live API.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
-        <div className="flex items-center justify-between rounded-lg border bg-background px-4 py-2 text-sm text-muted-foreground">
-          <span>Trạng thái: {geminiStatus}</span>
-          <span
-            className={cn(
-              "flex h-2 w-2 rounded-full",
-              isGeminiConnected ? "bg-green-500" : "bg-yellow-500 animate-pulse"
-            )}
-            aria-hidden
-          />
-        </div>
+    <section id="assistant" className="home-section assistant-section" aria-labelledby="assistant-title">
+      <div className="assistant-intro">
+        <span className="assistant-mark"><HomeIcon name="spark" /></span>
+        <p className="eyebrow">Trợ lý, không phải trung tâm</p>
+        <h2 id="assistant-title">Gemini ở đây khi bạn cần.</h2>
+        <p>Điều khiển nhà bằng văn bản hoặc giọng nói. Micro chỉ được yêu cầu khi bạn chủ động bật.</p>
+        <div className={cn("assistant-connection", isGeminiConnected && "is-good")} role="status"><span />{geminiStatus}</div>
+        <button type="button" className={cn("voice-orb", isRecording && "is-recording")} onClick={toggleRecording} disabled={!isGeminiConnected}>
+          <HomeIcon name="mic" /><span>{isRecording ? "Dừng trò chuyện" : "Bắt đầu bằng giọng nói"}</span>
+        </button>
+        {isMicPermissionDenied ? <p className="inline-error" role="alert">Quyền micro bị từ chối. Hãy kiểm tra cài đặt trình duyệt.</p> : null}
+        {recordingError ? <p className="inline-error" role="alert">{recordingError}</p> : null}
+      </div>
 
-        <div className="flex flex-col gap-2 rounded-lg border bg-background px-4 py-3 text-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Button type="button" variant={isRecording ? "default" : "secondary"} onClick={toggleRecording} disabled={!isGeminiConnected}>
-                {isRecording ? "Tắt micro" : "Bật micro"}
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {isRecording ? "Đang ghi âm và gửi tới Gemini" : "Nhấn để trò chuyện với Gemini bằng giọng nói"}
-              </span>
-            </div>
-            {!isGeminiConnected ? (
-              <span className="text-xs text-muted-foreground">Cần kết nối Gemini để sử dụng micro</span>
-            ) : null}
-          </div>
-          {isMicPermissionDenied ? (
-            <p className="text-xs text-destructive">Truy cập micro bị từ chối. Vui lòng kiểm tra quyền của trình duyệt.</p>
-          ) : null}
-          {recordingError ? <p className="text-xs text-destructive">{recordingError}</p> : null}
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-lg border bg-background px-4 py-3 text-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={isCameraStreaming ? "default" : "secondary"}
-                onClick={toggleCameraStream}
-              >
-                {isCameraStreaming ? "Ẩn camera" : "Xem camera IP"}
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                {isCameraStreaming
-                  ? "Đang xem camera IP; ảnh cũng được gửi tới Gemini khi Gemini online"
-                  : "Luồng ảnh lấy từ camera IP trong nhà qua backend"}
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground">Không sử dụng webcam MacBook</span>
-          </div>
-          <p className="text-xs" role="status">Camera IP: {cameraOnline ? "Online" : "Offline"}</p>
-          <Button type="button" variant="secondary" onClick={enableAlertAudio}>
-            {alertAudioEnabled ? "Âm thanh cảnh báo đã bật" : "Bật âm thanh cảnh báo"}
-          </Button>
-          <p className="text-xs text-muted-foreground">Demo giáo dục, không thay thế đầu báo khói/nhiệt. Giữ web mở để nghe cảnh báo qua loa MacBook.</p>
-          {cameraError ? <p className="text-xs text-destructive">{cameraError}</p> : null}
-          <div className="relative mx-auto w-full max-w-md">
-            <div className="relative w-full overflow-hidden" style={aspectRatioStyle}>
-              <img
-                src={isCameraStreaming && cameraOnline ? "/smart-home/camera/stream" : undefined}
-                alt="Luồng trực tiếp từ camera IP trong nhà"
-                className={cn(
-                  "absolute inset-0 h-full w-full rounded-md border bg-black object-cover transition-opacity",
-                  isCameraStreaming ? "opacity-100" : "pointer-events-none opacity-0"
-                )}
-              />
-              <div
-                className={cn(
-                  "absolute inset-0 flex items-center justify-center rounded-md border border-dashed bg-background/90 text-xs text-muted-foreground transition-opacity",
-                  isCameraStreaming ? "pointer-events-none opacity-0" : "opacity-100"
-                )}
-              >
-                Đang ẩn hình camera; backend vẫn phát hiện cháy
+      <div className="conversation-panel">
+        <div className="conversation-head"><div><p className="eyebrow">Cuộc trò chuyện</p><h3>Gợi ý nhẹ nhàng cho ngôi nhà</h3></div><HomeIcon name="message" /></div>
+        <div ref={chatContainerRef} className="conversation-stream" aria-live="polite">
+          {chatMessages.length ? chatMessages.map((message) => (
+            <div key={message.id} className={cn("message-row", `message-row--${message.role}`)}>
+              <span className="message-author">{message.role === "user" ? "Bạn" : message.role === "assistant" ? "Gemini" : "Hệ thống"}</span>
+              <div className="message-body">
+                {message.content ? <p>{message.content}</p> : null}
+                {message.imageDataUrl ? <img src={message.imageDataUrl} alt={message.role === "user" ? "Ảnh bạn đã gửi" : "Ảnh từ Gemini"} /> : null}
               </div>
+              {message.streaming ? <small>Đang trả lời…</small> : null}
             </div>
-          </div>
+          )) : <div className="conversation-empty"><HomeIcon name="leaf" /><p>Không cần phải nói gì cả.</p><span>Khi cần, hãy nhờ Gemini điều khiển đèn hoặc phát nhạc.</span></div>}
         </div>
 
-        <div className="rounded-lg border bg-background px-4 py-3 text-sm">
-          <div className="flex flex-col gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="gemini-image-upload">Gửi ảnh tới Gemini</Label>
-              <Input
-                id="gemini-image-upload"
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                disabled={!isGeminiConnected || isUploadingImage}
-              />
-              <p className="text-xs text-muted-foreground">Hỗ trợ ảnh tối đa {formatFileSize(maxImageSize)}.</p>
-            </div>
-            {selectedImagePreview ? (
-              <div className="flex flex-col gap-2">
-                <img src={selectedImagePreview} alt="Ảnh đã chọn để gửi tới Gemini" className="max-h-48 rounded-md border object-contain" />
-                {selectedImage ? (
-                  <span className="text-xs text-muted-foreground">
-                    {selectedImage.name} · {formatFileSize(selectedImage.size)}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="flex justify-end gap-2">
-              {selectedImage ? (
-                <Button type="button" variant="ghost" onClick={clearSelectedImage} disabled={isUploadingImage}>
-                  Bỏ chọn
-                </Button>
-              ) : null}
-              <Button
-                type="button"
-                onClick={() => void sendSelectedImage()}
-                disabled={!selectedImage || !isGeminiConnected || isUploadingImage}
-              >
-                {isUploadingImage ? "Đang gửi..." : "Gửi ảnh"}
-              </Button>
-            </div>
-          </div>
-        </div>
+        {selectedImagePreview ? <div className="selected-image"><img src={selectedImagePreview} alt="Ảnh đã chọn để gửi tới Gemini" /><div><strong>{selectedImage?.name}</strong><span>{selectedImage ? formatFileSize(selectedImage.size) : ""}</span></div><button type="button" onClick={clearSelectedImage}>Bỏ chọn</button></div> : null}
 
-        <div className="flex-1 overflow-hidden rounded-lg border bg-background">
-          <div ref={chatContainerRef} className="h-80 space-y-4 overflow-y-auto p-4 text-sm">
-            {chatMessages.length ? (
-              chatMessages.map((message) => (
-                <div key={message.id} className={cn("flex flex-col gap-1", message.role === "user" ? "items-end" : "items-start")}> 
-                  <div
-                    className={cn(
-                      "max-w-[85%] rounded-lg px-3 py-2",
-                      message.role === "assistant"
-                        ? "bg-primary/10 text-primary-foreground/90"
-                        : message.role === "user"
-                          ? "bg-muted text-foreground"
-                          : "bg-amber-50 text-amber-900"
-                    )}
-                  >
-                    <div className="flex flex-col gap-2">
-                      {message.content ? (
-                        <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
-                      ) : null}
-                      {message.imageDataUrl ? (
-                        <img
-                          src={message.imageDataUrl}
-                          alt={message.role === "user" ? "Ảnh bạn đã gửi" : "Ảnh từ Gemini"}
-                          className="max-h-64 rounded-md border object-contain"
-                        />
-                      ) : null}
-                    </div>
-                  </div>
-                  {message.streaming ? (
-                    <span className="text-xs text-muted-foreground">Gemini đang trả lời...</span>
-                  ) : null}
-                </div>
-              ))
-            ) : (
-              <div className="flex h-full items-center justify-center text-center text-muted-foreground">
-                Chưa có cuộc trò chuyện nào. Hãy gửi lời chào cho Gemini nhé!
-              </div>
-            )}
-          </div>
-        </div>
-
-        <form className="flex flex-col gap-3" onSubmit={onChatSubmit}>
-          <label className="space-y-2">
-            <span className="text-sm font-medium">Tin nhắn</span>
-            <textarea
-              value={chatInput}
-              onChange={(event) => onChatInputChange(event.target.value)}
-              onKeyDown={onChatKeyDown}
-              rows={3}
-              className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              placeholder="Nhập nội dung bạn muốn trao đổi với Gemini"
-            />
-          </label>
-          <div className="flex justify-end gap-2">
-            <Button type="submit" disabled={!isGeminiConnected}>
-              Gửi tin nhắn
-            </Button>
+        <form className="composer" onSubmit={onChatSubmit}>
+          <textarea aria-label="Tin nhắn gửi Gemini" value={chatInput} onChange={(event) => onChatInputChange(event.target.value)} onKeyDown={onChatKeyDown} rows={2} placeholder="Nhờ Gemini hỗ trợ…" />
+          <div className="composer-actions">
+            <label className={cn("icon-action", (!isGeminiConnected || isUploadingImage) && "is-disabled")} title={`Gửi ảnh tối đa ${formatFileSize(maxImageSize)}`}>
+              <HomeIcon name="image" /><span className="sr-only">Chọn ảnh gửi tới Gemini</span>
+              <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageSelect} disabled={!isGeminiConnected || isUploadingImage} />
+            </label>
+            {selectedImage ? <button type="button" className="icon-action" onClick={() => void sendSelectedImage()} disabled={!isGeminiConnected || isUploadingImage} aria-label="Gửi ảnh"><HomeIcon name="send" /></button> : null}
+            <button type="submit" className="send-button" disabled={!isGeminiConnected || !chatInput.trim()}><span>Gửi</span><HomeIcon name="send" /></button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
