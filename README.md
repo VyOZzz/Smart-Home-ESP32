@@ -1,5 +1,11 @@
 # Smart Home ESP32
 
+![Python](https://img.shields.io/badge/Python-FastAPI-3776AB?logo=python&logoColor=white)
+![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=20232A)
+![ESP32](https://img.shields.io/badge/ESP32-PlatformIO-E7352C?logo=espressif&logoColor=white)
+![MQTT](https://img.shields.io/badge/MQTT-Mosquitto-660066?logo=eclipsemosquitto&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+
 Project nhà thông minh phục vụ học tập, chạy trên MacBook với Docker Desktop,
 Mosquitto, FastAPI và React. Hệ thống hiện dùng hai ESP32:
 
@@ -8,6 +14,38 @@ Mosquitto, FastAPI và React. Hệ thống hiện dùng hai ESP32:
 
 Camera dùng trong project là camera IP truyền RTSP qua mạng LAN. Microphone và
 loa dùng của MacBook; camera tích hợp trên MacBook không được sử dụng.
+
+> Đây là prototype IoT phục vụ học tập và trình diễn trong mạng LAN, không phải
+> hệ thống an toàn hoặc điều khiển điện dân dụng đã được chứng nhận.
+
+## Mục lục
+
+- [Tính năng nổi bật](#tính-năng-nổi-bật)
+- [Phạm vi đã xác nhận](#phạm-vi-đã-xác-nhận)
+- [Kiến trúc hiện tại](#kiến-trúc-hiện-tại)
+- [Công nghệ sử dụng](#công-nghệ-sử-dụng)
+- [Phần cứng và đấu dây](#phần-cứng-và-đấu-dây)
+- [Cấu hình](#cấu-hình)
+- [Build và nạp firmware](#build-và-nạp-firmware)
+- [Chạy hệ thống](#chạy-hệ-thống)
+- [MQTT topics](#mqtt-topics)
+- [Kiểm thử](#kiểm-thử)
+- [Kịch bản demo ngắn](#kịch-bản-demo-ngắn)
+- [Giới hạn và bảo mật](#giới-hạn-và-bảo-mật)
+
+## Tính năng nổi bật
+
+- Điều khiển bốn đèn mô phỏng bằng LED từ web/API hoặc lệnh giọng nói Gemini.
+- Xác nhận lệnh hai chiều: dashboard chỉ đổi trạng thái sau khi ESP32 phản hồi
+  qua MQTT, đồng thời hiển thị timeout, mất kết nối và quá trình đồng bộ lại.
+- Thu thập nhiệt độ/độ ẩm từ DHT11, cung cấp REST API và cập nhật WebSocket.
+- Lưu lịch sử dữ liệu môi trường trong SQLite với dung lượng được giới hạn.
+- Nhận luồng RTSP từ camera IP, cung cấp JPEG/MJPEG và phát hiện cháy thử nghiệm
+  độc lập với phiên Gemini.
+- Phát nhạc, hội thoại realtime và điều khiển thiết bị bằng Gemini function
+  calling khi có API key hợp lệ.
+- Docker Compose đóng gói frontend, backend và Mosquitto để dựng môi trường
+  demo nhất quán.
 
 ## Phạm vi đã xác nhận
 
@@ -47,6 +85,18 @@ flowchart LR
 
 FastAPI đọc camera IP độc lập với phiên Gemini. Việc đóng Gemini không được làm
 dừng camera capture hoặc xử lý ảnh.
+
+## Công nghệ sử dụng
+
+| Thành phần | Công nghệ |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Tailwind CSS |
+| Backend | Python, FastAPI, Uvicorn, WebSocket |
+| IoT | ESP32 DevKit, Arduino framework, PlatformIO |
+| Messaging | MQTT, Eclipse Mosquitto, PubSubClient |
+| Dữ liệu | SQLite, JSON state |
+| AI & media | Google Gemini, OpenCV, RTSP/MJPEG, Mutagen |
+| Triển khai | Docker Compose, Nginx |
 
 ## Luồng điều khiển đèn
 
@@ -331,3 +381,19 @@ Không commit:
 `environment-firmware/` là firmware tùy chọn cho ESP32 + DHT22, DATA ở GPIO23,
 device ID `esp32-environment`. Node này chưa được xác nhận bằng phần cứng thật và
 không thuộc luồng DHT11 đang dùng trong demo hiện tại.
+
+## Đóng góp
+
+Issue và pull request đều được chào đón. Trước khi gửi thay đổi:
+
+1. Không commit API key, thông tin Wi-Fi, MQTT, RTSP hoặc certificate.
+2. Chạy test backend, build frontend và build firmware có liên quan.
+3. Mô tả rõ phần cứng đã kiểm thử thực tế và phần nào mới chỉ được mô phỏng.
+4. Cập nhật tài liệu nếu thay đổi API, MQTT topic, sơ đồ chân hoặc quy trình cài
+   đặt.
+
+## Giấy phép
+
+Repository hiện chưa công bố file `LICENSE`. Mặc định tác giả giữ toàn bộ quyền;
+hãy liên hệ tác giả trước khi phân phối hoặc tái sử dụng project ngoài phạm vi
+được cho phép.
