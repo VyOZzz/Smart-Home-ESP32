@@ -37,16 +37,13 @@ Backend chỉ xác nhận thay đổi trạng thái đèn sau khi nhận phản 
 - **Trình phát nhạc:** quản lý thư viện, stream audio, phát, tạm dừng, tiếp tục và tua bài hát.
 - **Theo dõi kết nối:** hiển thị trạng thái MQTT, ESP32 online/offline, dữ liệu stale và tự đồng bộ khi kết nối lại.
 - **Triển khai bằng Docker:** khởi động Mosquitto, backend và frontend bằng một lệnh.
-- **Nhiều client:** web dashboard là client chính; source Android được giữ trong `android-app/` để phát triển mobile.
 
 ## 🏗 Kiến trúc hệ thống
 
 ```mermaid
 flowchart LR
     user[Người dùng] --> web[React Web]
-    user -.-> mobile[Android Client]
     web <-->|REST + WebSocket| api[FastAPI]
-    mobile <-->|REST + WebSocket| api
 
     api <-->|MQTT| broker[Eclipse Mosquitto]
     broker <-->|set / state / status| lights[ESP32 · 4 LED]
@@ -354,7 +351,6 @@ Smart-Home-ESP32/
 │   ├── music/                  # Thư viện nhạc demo
 │   └── tests/                  # Backend test suite
 ├── frontend/                   # React + TypeScript dashboard
-├── android-app/                # Source Android client
 ├── esp32-firmware/             # Firmware điều khiển bốn LED
 ├── esp32-sensor-firmware/      # Firmware ESP32 + DHT11 đang sử dụng
 ├── environment-firmware/       # Node DHT22 tùy chọn, chưa test vật lý
@@ -403,7 +399,6 @@ docker compose ps
 - [x] Camera IP RTSP, snapshot và MJPEG stream.
 - [x] Gemini Live, function calling và điều khiển bằng giọng nói.
 - [x] Phát nhạc và cảnh báo cháy thử nghiệm.
-- [ ] Hoàn thiện và kiểm thử Android client với backend hiện tại.
 - [ ] Kiểm thử node DHT22 tùy chọn trên phần cứng thật.
 - [ ] Bổ sung xác thực người dùng và phân quyền thiết bị.
 - [ ] Bật MQTT authentication/TLS cho môi trường triển khai.
