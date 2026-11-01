@@ -26,12 +26,14 @@ Khi gửi hình cho Gemini, web lấy JPEG mới nhất từ backend.
 Trình duyệt chỉ xin quyền microphone cho giọng nói, không xin quyền camera.
 Nút bật âm thanh cho phép nghe cảnh báo qua loa MacBook khi trang web đang mở.
 
-## Cấu hình còn chờ thiết bị
+## Camera demo đã xác định
 
-Cần hãng và model camera để xác nhận hỗ trợ và đường dẫn RTSP. Không yêu cầu
-người dùng gửi mật khẩu. HOME_CAMERA_RTSP_URL được điền riêng trong backend/.env;
-file mẫu để trống và chỉ minh họa cú pháp. ONVIF có thể dùng để lấy URI stream,
-chưa triển khai dò ONVIF tự động. Không commit .env hoặc include/config.h.
+Camera của demo là Imou Ranger 2 3MP, model `IPC-A32EP-L`. Không hỏi lại hãng
+hoặc model và không yêu cầu người dùng gửi mật khẩu. HOME_CAMERA_RTSP_URL được
+điền riêng trong backend/.env; file mẫu để trống và chỉ minh họa cú pháp. Địa
+chỉ LAN do DHCP cấp có thể thay đổi nên không được ghi thành địa chỉ cố định
+trong tài liệu hoặc mã nguồn. ONVIF có thể dùng để lấy URI stream, chưa triển
+khai dò ONVIF tự động. Không commit .env hoặc include/config.h.
 
 ## Kiểm chứng
 
@@ -59,4 +61,6 @@ người dùng bật âm thanh và loa MacBook không bị tắt.
 - Kiểm tra native RTSP với địa chỉ loopback không phục vụ: lỗi không lộ thông
   tin đăng nhập; API status và snapshot 200/503 đúng kỳ vọng.
 - Ba file JSON hội thoại, trạng thái đèn và phiên giống hệt trước khi sửa.
-- Chưa thử camera thật; chờ hãng/model trước khi chốt URL RTSP và thử phần cứng.
+- Đã xác định camera thật là Imou Ranger 2 3MP (`IPC-A32EP-L`); kết nối RTSP
+  vật lý vẫn cần được xác nhận sau khi camera mở dịch vụ LAN và backend đọc được
+  khung hình.

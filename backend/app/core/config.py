@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import os
+import ipaddress
 
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit, urlunsplit
 
 from dotenv import load_dotenv
 
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+load_dotenv(BACKEND_ROOT / ".env")
 
 # Native FFmpeg errors can contain credential-bearing URLs.
 os.environ["OPENCV_FFMPEG_LOGLEVEL"] = "-8"
@@ -56,6 +60,34 @@ def _env_str(name: str, default: Optional[str]) -> Optional[str]:
     if value is None:
         return default
     return value
+
+
+def _camera_rtsp_url() -> str:
+    """Override only the RTSP host from a non-secret local file when present."""
+    rtsp_url = _env_str("HOME_CAMERA_RTSP_URL", "") or ""
+    ip_file = _env_path(
+        "HOME_CAMERA_IP_FILE", BACKEND_ROOT / "data" / "camera_ip.txt"
+    )
+    try:
+        camera_ip = ip_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return rtsp_url
+    if not camera_ip:
+        return rtsp_url
+    try:
+        ipaddress.ip_address(camera_ip)
+        parsed = urlsplit(rtsp_url)
+        port = parsed.port
+    except (ValueError, TypeError):
+        return rtsp_url
+    if parsed.scheme not in {"rtsp", "rtsps"} or not parsed.hostname:
+        return rtsp_url
+
+    userinfo, separator, _host = parsed.netloc.rpartition("@")
+    host = f"[{camera_ip}]" if ":" in camera_ip else camera_ip
+    host_port = f"{host}:{port}" if port is not None else host
+    netloc = f"{userinfo}@{host_port}" if separator else host_port
+    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
 
 
 @dataclass
@@ -122,7 +154,7 @@ class Settings:
         )
     )
     home_camera_rtsp_url: str = field(
-        repr=False, default_factory=lambda: _env_str("HOME_CAMERA_RTSP_URL", "")
+        repr=False, default_factory=_camera_rtsp_url
     )
     camera_capture_interval_seconds: float = field(
         default_factory=lambda: max(

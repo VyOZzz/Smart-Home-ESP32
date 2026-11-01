@@ -52,6 +52,7 @@ backend/__pycache__/
 backend/venv/
 backend/data/images/
 backend/data/*.db
+backend/data/camera_ip.txt
 
 # Node.js & Frontend
 node_modules/

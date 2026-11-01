@@ -1,0 +1,3 @@
+# Copy this file to camera_ip.txt and keep only the camera's current LAN IP.
+# camera_ip.txt is local runtime configuration and is ignored by Git.
+192.168.0.106

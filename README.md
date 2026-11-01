@@ -164,6 +164,11 @@ Nếu sử dụng camera IP, chỉ đặt URL RTSP trong `backend/.env`:
 HOME_CAMERA_RTSP_URL=rtsp://user:password@camera-ip:554/model-specific-path
 ```
 
+Địa chỉ LAN của camera có thể thay đổi do DHCP. Để đổi IP mà không sửa URL chứa
+thông tin đăng nhập, sao chép `backend/data/camera_ip.example.txt` thành
+`backend/data/camera_ip.txt`, ghi IP hiện tại vào một dòng rồi khởi động lại
+backend. File `camera_ip.txt` chỉ là cấu hình cục bộ và được Git bỏ qua.
+
 Không đoán RTSP path nếu chưa biết hãng/model camera. Không commit URL hoặc thông tin đăng nhập camera.
 
 ### 3. Khởi động hệ thống

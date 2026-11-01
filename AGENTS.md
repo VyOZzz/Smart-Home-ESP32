@@ -11,8 +11,9 @@ Use this context when changing code or documentation in this repository.
 - One ESP32 DevKit (`esp32dev`) controls four LEDs over Wi-Fi/MQTT only.
 - A second ESP32 DevKit reads an installed DHT11 module with DATA on GPIO 4.
   Its MQTT device ID is `esp32-sensor` and sensor ID is `room-1`.
-- A separate household IP camera streams RTSP over LAN/Wi-Fi to FastAPI on
-  the MacBook. Camera wiring and acquisition are independent of the ESP32.
+- A separate Imou Ranger 2 3MP IP camera (`IPC-A32EP-L`) streams RTSP over
+  LAN/Wi-Fi to FastAPI on the MacBook. Camera wiring and acquisition are
+  independent of the ESP32. Its LAN address may change through DHCP.
 - Four LEDs on a breadboard represent the four room lights. Each LED has its own
   330 Ω resistor and is connected to GPIO 16, 17, 18 or 19.
 - Outputs are active-LOW: `ON` means GPIO LOW and `OFF` means GPIO HIGH.
@@ -46,8 +47,12 @@ explicit new requirement.
   `esp32-sensor-firmware/include/config.h`.
 
 - Configure HOME_CAMERA_RTSP_URL only in backend/.env; never expose its URL or
-  credentials in frontend responses or logs. Ask for camera brand/model before
-  choosing a concrete RTSP path; never request the camera password.
+  credentials in frontend responses or logs. The known camera is an Imou
+  Ranger 2 3MP (`IPC-A32EP-L`), so do not ask for its brand/model again. Never
+  request the camera password. Do not persist its DHCP address as a fixed
+  project fact; discover or confirm the current LAN address when needed. Store
+  the current non-secret address in ignored `backend/data/camera_ip.txt`; this
+  overrides only the host in HOME_CAMERA_RTSP_URL after a backend restart.
 - Camera capture and fire detection must run without a Gemini session.
 - Serve JPEG/MJPEG through the backend; browser media access is microphone-only.
 
