@@ -44,7 +44,7 @@ class GeminiCompatibilityTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_get_environment_tool_returns_latest_sensor_reading(self):
         reading = {
-            "device_id": "esp32-environment",
+            "device_id": "esp32-sensor",
             "temperature_c": 27.5,
             "humidity_percent": 62.0,
             "online": True,

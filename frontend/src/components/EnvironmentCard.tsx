@@ -82,9 +82,9 @@ export function EnvironmentCard({ environment, history, isLoading, connectionErr
     <section id="environment" className="environment-section" aria-labelledby="environment-title">
       <header className="environment-head">
         <div className="space-y-1.5">
-          <p className="eyebrow">Mở rộng Level 6 · tùy chọn</p>
+          <p className="eyebrow">Cảm biến môi trường · đang hoạt động</p>
           <h2 id="environment-title">Khí hậu trong nhà</h2>
-          <p>Chỉ hiển thị số đo thật khi node ESP32 + DHT22 đã gửi dữ liệu về backend.</p>
+          <p>Số đo nhiệt độ và độ ẩm từ node ESP32 + DHT11.</p>
         </div>
         <div
           className={cn(

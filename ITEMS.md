@@ -66,27 +66,6 @@ backend hiện đọc RTSP trực tiếp, chưa tự dò thiết bị ONVIF.
 Node này dùng device ID `esp32-sensor`, sensor ID `room-1`, đọc mỗi 5 giây và
 không điều khiển bốn LED.
 
-## Mở rộng DHT22 tùy chọn
-
-Code cho node DHT22 thay thế đã được chuẩn bị trước. Có thể nạp thay firmware
-DHT11 trên ESP32 thứ hai, hoặc dùng thêm một ESP32 khác. Khi lắp thật cần:
-
-- Một ESP32 DevKit thứ hai và một cáp USB truyền dữ liệu.
-- Một module DHT22 loại 3 chân có sẵn điện trở kéo lên.
-- Ba dây jumper. Có thể cắm trực tiếp module vào dây; breadboard thứ hai chỉ
-  cần khi muốn cố định mô hình cho dễ trình bày.
-
-| DHT22 | ESP32 thứ hai |
-| --- | --- |
-| `VCC` | `3V3` |
-| `GND` | `GND` |
-| `DATA` | `GPIO 23` |
-
-Đọc đúng nhãn chân in trên module vì thứ tự chân có thể khác giữa các hãng.
-Node DHT22 gửi nhiệt độ/độ ẩm qua MQTT và không điều khiển bốn LED. Chưa được
-ghi trong báo cáo là đã test phần cứng cho đến khi board và cảm biến thật hoạt
-động.
-
 Các cảm biến chuyển động, khí gas hoặc ánh sáng vẫn là hướng mở rộng sau này.
 
 Không đấu điện lưới vào project học tập này.

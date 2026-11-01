@@ -353,7 +353,6 @@ Smart-Home-ESP32/
 ├── frontend/                   # React + TypeScript dashboard
 ├── esp32-firmware/             # Firmware điều khiển bốn LED
 ├── esp32-sensor-firmware/      # Firmware ESP32 + DHT11 đang sử dụng
-├── environment-firmware/       # Node DHT22 tùy chọn, chưa test vật lý
 ├── mqtt/                       # Eclipse Mosquitto configuration
 ├── docker-compose.yml          # Local orchestration
 ├── requirements.txt            # Python dependencies
@@ -399,7 +398,6 @@ docker compose ps
 - [x] Camera IP RTSP, snapshot và MJPEG stream.
 - [x] Gemini Live, function calling và điều khiển bằng giọng nói.
 - [x] Phát nhạc và cảnh báo cháy thử nghiệm.
-- [ ] Kiểm thử node DHT22 tùy chọn trên phần cứng thật.
 - [ ] Bổ sung xác thực người dùng và phân quyền thiết bị.
 - [ ] Bật MQTT authentication/TLS cho môi trường triển khai.
 - [ ] Thêm CI/CD, HTTPS, monitoring và production deployment.

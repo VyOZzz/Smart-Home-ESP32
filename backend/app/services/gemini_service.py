@@ -938,7 +938,7 @@ class GeminiService:
                             name="get_environment",
                             description=(
                                 "Đọc nhiệt độ, độ ẩm và trạng thái online mới nhất "
-                                "từ ESP32 gắn DHT22"
+                                "từ ESP32 gắn DHT11"
                             ),
                             parameters={
                                 "type": "object",
