@@ -1,399 +1,473 @@
+<div align="center">
+
 # Smart Home ESP32
 
-![Python](https://img.shields.io/badge/Python-FastAPI-3776AB?logo=python&logoColor=white)
-![React](https://img.shields.io/badge/React-TypeScript-61DAFB?logo=react&logoColor=20232A)
-![ESP32](https://img.shields.io/badge/ESP32-PlatformIO-E7352C?logo=espressif&logoColor=white)
-![MQTT](https://img.shields.io/badge/MQTT-Mosquitto-660066?logo=eclipsemosquitto&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+### Hệ thống nhà thông minh IoT với ESP32, MQTT, FastAPI, React và Gemini
 
-Project nhà thông minh phục vụ học tập, chạy trên MacBook với Docker Desktop,
-Mosquitto, FastAPI và React. Hệ thống hiện dùng hai ESP32:
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=20232A)](https://react.dev/)
+[![ESP32](https://img.shields.io/badge/ESP32-PlatformIO-E7352C?logo=espressif&logoColor=white)](https://www.espressif.com/)
+[![MQTT](https://img.shields.io/badge/MQTT-Mosquitto-660066?logo=eclipsemosquitto&logoColor=white)](https://mosquitto.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 
-- ESP32 thứ nhất điều khiển bốn LED qua MQTT.
-- ESP32 thứ hai đọc DHT11 ở GPIO4 và gửi nhiệt độ/độ ẩm qua MQTT.
+[Tính năng](#-tính-năng-nổi-bật) ·
+[Kiến trúc](#-kiến-trúc-hệ-thống) ·
+[Cài đặt](#-bắt-đầu) ·
+[API](#-api-reference) ·
+[MQTT](#-mqtt-reference) ·
+[Đóng góp](#-đóng-góp)
 
-Camera dùng trong project là camera IP truyền RTSP qua mạng LAN. Microphone và
-loa dùng của MacBook; camera tích hợp trên MacBook không được sử dụng.
+</div>
 
-> Đây là prototype IoT phục vụ học tập và trình diễn trong mạng LAN, không phải
-> hệ thống an toàn hoặc điều khiển điện dân dụng đã được chứng nhận.
+Smart Home ESP32 là một project IoT full-stack phục vụ học tập và trình diễn. Hệ thống kết nối dashboard web, FastAPI, Eclipse Mosquitto và các node ESP32 để điều khiển đèn, theo dõi nhiệt độ/độ ẩm, xem camera IP, phát hiện cháy thử nghiệm và tương tác bằng giọng nói với Google Gemini.
 
-## Mục lục
+Backend chỉ xác nhận thay đổi trạng thái đèn sau khi nhận phản hồi thực tế từ ESP32. Vì vậy dashboard có thể hiển thị đúng trạng thái thiết bị, timeout, mất kết nối và quá trình đồng bộ lại thay vì chỉ mô phỏng thao tác ở giao diện.
 
-- [Tính năng nổi bật](#tính-năng-nổi-bật)
-- [Phạm vi đã xác nhận](#phạm-vi-đã-xác-nhận)
-- [Kiến trúc hiện tại](#kiến-trúc-hiện-tại)
-- [Công nghệ sử dụng](#công-nghệ-sử-dụng)
-- [Phần cứng và đấu dây](#phần-cứng-và-đấu-dây)
-- [Cấu hình](#cấu-hình)
-- [Build và nạp firmware](#build-và-nạp-firmware)
-- [Chạy hệ thống](#chạy-hệ-thống)
-- [MQTT topics](#mqtt-topics)
-- [Kiểm thử](#kiểm-thử)
-- [Kịch bản demo ngắn](#kịch-bản-demo-ngắn)
-- [Giới hạn và bảo mật](#giới-hạn-và-bảo-mật)
+> [!WARNING]
+> Đây là prototype giáo dục chạy trong mạng LAN. Project không phải hệ thống báo cháy được chứng nhận và không được thiết kế để điều khiển trực tiếp tải điện lưới.
 
-## Tính năng nổi bật
+## ✨ Tính năng nổi bật
 
-- Điều khiển bốn đèn mô phỏng bằng LED từ web/API hoặc lệnh giọng nói Gemini.
-- Xác nhận lệnh hai chiều: dashboard chỉ đổi trạng thái sau khi ESP32 phản hồi
-  qua MQTT, đồng thời hiển thị timeout, mất kết nối và quá trình đồng bộ lại.
-- Thu thập nhiệt độ/độ ẩm từ DHT11, cung cấp REST API và cập nhật WebSocket.
-- Lưu lịch sử dữ liệu môi trường trong SQLite với dung lượng được giới hạn.
-- Nhận luồng RTSP từ camera IP, cung cấp JPEG/MJPEG và phát hiện cháy thử nghiệm
-  độc lập với phiên Gemini.
-- Phát nhạc, hội thoại realtime và điều khiển thiết bị bằng Gemini function
-  calling khi có API key hợp lệ.
-- Docker Compose đóng gói frontend, backend và Mosquitto để dựng môi trường
-  demo nhất quán.
+- **Điều khiển đèn hai chiều:** gửi lệnh từ web/API/Gemini qua MQTT và chờ ESP32 xác nhận trạng thái GPIO.
+- **Giám sát môi trường:** nhận nhiệt độ, độ ẩm từ ESP32 + DHT11, lưu lịch sử bằng SQLite và cập nhật realtime qua WebSocket.
+- **Camera IP:** FastAPI đọc luồng RTSP độc lập với Gemini, cung cấp snapshot JPEG và MJPEG stream cho frontend.
+- **Phát hiện cháy thử nghiệm:** xử lý khung hình bằng OpenCV, giới hạn tần suất cảnh báo và hỗ trợ cảnh báo âm thanh.
+- **Trợ lý Gemini Live:** hội thoại văn bản/giọng nói, phân tích ảnh và function calling để điều khiển đèn hoặc phát nhạc.
+- **Trình phát nhạc:** quản lý thư viện, stream audio, phát, tạm dừng, tiếp tục và tua bài hát.
+- **Theo dõi kết nối:** hiển thị trạng thái MQTT, ESP32 online/offline, dữ liệu stale và tự đồng bộ khi kết nối lại.
+- **Triển khai bằng Docker:** khởi động Mosquitto, backend và frontend bằng một lệnh.
+- **Nhiều client:** web dashboard là client chính; source Android được giữ trong `android-app/` để phát triển mobile.
 
-## Phạm vi đã xác nhận
-
-Các kết quả dưới đây đã được kiểm tra trong quá trình hoàn thiện project:
-
-- Hai firmware ESP32 build và nạp thành công bằng PlatformIO.
-- ESP32 đèn kết nối Wi-Fi/MQTT và phản hồi trạng thái của bốn GPIO.
-- DHT11 đọc được nhiệt độ/độ ẩm thực tế và publish đúng MQTT topic.
-- Backend chỉ cập nhật đèn sau khi nhận phản hồi `/state` từ ESP32.
-- API và WebSocket nhận được dữ liệu DHT11 thực tế.
-- Backend tests đạt 37/37 tại lần kiểm thử hoàn thiện.
-- Frontend production build thành công.
-- Khi Mosquitto dừng, API báo offline; khi broker chạy lại, ESP32 và backend tự
-  kết nối lại.
-
-Các phần sau có code nhưng cần cấu hình/kiểm tra riêng trước khi trình bày:
-
-- Gemini cần `GOOGLE_API_KEY` hợp lệ và kết nối Internet.
-- Camera cần URL RTSP đúng theo hãng/model và phải truy cập được trong LAN.
-- Phát nhạc cần trình duyệt cho phép âm thanh và loa MacBook hoạt động.
-- Node DHT22 trong `environment-firmware/` là tùy chọn, chưa kiểm thử vật lý.
-- MQTT cloud/TLS chưa được xác nhận bằng tài khoản cloud thật.
-
-## Kiến trúc hiện tại
+## 🏗 Kiến trúc hệ thống
 
 ```mermaid
 flowchart LR
-    web["React web"] <-->|"REST + WebSocket"| api["FastAPI trên MacBook"]
-    api <-->|"MQTT"| broker["Mosquitto trên MacBook"]
-    broker <-->|"set, state, status"| lights["ESP32 đèn: GPIO 16-19"]
-    broker <-->|"state, status, get-state"| sensor["ESP32 + DHT11: GPIO4"]
-    api --> history["SQLite lịch sử cảm biến"]
-    camera["Camera IP"] -->|"RTSP qua LAN"| api
-    api -.->|"Khi có API key"| gemini["Gemini API"]
-    api --> speaker["Nhạc và cảnh báo qua loa MacBook"]
+    user[Người dùng] --> web[React Web]
+    user -.-> mobile[Android Client]
+    web <-->|REST + WebSocket| api[FastAPI]
+    mobile <-->|REST + WebSocket| api
+
+    api <-->|MQTT| broker[Eclipse Mosquitto]
+    broker <-->|set / state / status| lights[ESP32 · 4 LED]
+    broker <-->|telemetry / status| sensor[ESP32 · DHT11]
+
+    api --> db[(SQLite History)]
+    camera[Camera IP] -->|RTSP| api
+    api -.->|API key| gemini[Google Gemini]
+    api --> audio[Loa · Nhạc · Cảnh báo]
 ```
 
-FastAPI đọc camera IP độc lập với phiên Gemini. Việc đóng Gemini không được làm
-dừng camera capture hoặc xử lý ảnh.
-
-## Công nghệ sử dụng
-
-| Thành phần | Công nghệ |
-| --- | --- |
-| Frontend | React, TypeScript, Vite, Tailwind CSS |
-| Backend | Python, FastAPI, Uvicorn, WebSocket |
-| IoT | ESP32 DevKit, Arduino framework, PlatformIO |
-| Messaging | MQTT, Eclipse Mosquitto, PubSubClient |
-| Dữ liệu | SQLite, JSON state |
-| AI & media | Google Gemini, OpenCV, RTSP/MJPEG, Mutagen |
-| Triển khai | Docker Compose, Nginx |
-
-## Luồng điều khiển đèn
+### Luồng điều khiển đèn
 
 ```mermaid
 sequenceDiagram
     actor User as Người dùng
-    participant Web as Web
+    participant UI as Web / Gemini
     participant API as FastAPI
     participant MQTT as Mosquitto
-    participant ESP as ESP32 đèn
-    participant LED as LED vật lý
+    participant ESP as ESP32
 
-    User->>Web: Bật hoặc tắt một phòng
-    Web->>API: Gửi lệnh
-    API->>MQTT: Publish /set
-    MQTT->>ESP: Chuyển lệnh ON hoặc OFF
-    ESP->>LED: Đặt GPIO active-LOW
-    ESP->>MQTT: Publish /state
-    MQTT->>API: Trạng thái đã thực hiện
-    API-->>Web: Trả kết quả và cập nhật realtime
+    User->>UI: Bật đèn phòng khách
+    UI->>API: POST /smart-home/lights/on
+    API->>MQTT: smarthome/lights/living-room/set
+    MQTT->>ESP: ON
+    ESP->>ESP: GPIO16 = LOW
+    ESP->>MQTT: smarthome/lights/living-room/state
+    MQTT->>API: Trạng thái xác nhận
+    API-->>UI: Thành công + cập nhật realtime
 ```
 
-Backend không đổi trạng thái chỉ dựa vào lệnh gửi đi. Nếu ESP32 không phản hồi
-đúng `/state` trong thời hạn cấu hình, API báo timeout.
+## 🧰 Công nghệ sử dụng
 
-## Phần cứng và đấu dây
-
-### Bốn LED
-
-| Khu vực | MQTT ID | GPIO |
-| --- | --- | ---: |
-| Phòng khách | `living-room` | 16 |
-| Phòng ngủ | `bedroom` | 17 |
-| Nhà bếp | `kitchen` | 18 |
-| Ban công | `balcony` | 19 |
-
-Mỗi LED dùng một điện trở 330 Ω:
-
-```mermaid
-flowchart LR
-    supply["3V3"] --> resistor["Điện trở 330 Ω"]
-    resistor --> anode["Chân dài LED (+)"]
-    anode --> cathode["Chân ngắn LED (-)"]
-    cathode --> gpio["GPIO 16, 17, 18 hoặc 19"]
-```
-
-Firmware dùng active-LOW: `ON` là GPIO `LOW`, `OFF` là GPIO `HIGH`.
-
-### DHT11 module 3 chân
-
-| DHT11 | ESP32 cảm biến |
+| Lớp | Công nghệ |
 | --- | --- |
-| `VCC/+` | `3V3` |
-| `DATA/S/OUT` | `D4/GPIO4` |
-| `GND/-` | `GND` |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| Backend | Python 3.12, FastAPI, Uvicorn, WebSocket |
+| AI & media | Google Gen AI SDK, Gemini Live/TTS, OpenCV, Mutagen |
+| IoT | ESP32 DevKit, Arduino framework, PlatformIO |
+| Messaging | MQTT, Eclipse Mosquitto, PubSubClient |
+| Storage | SQLite, JSON runtime state |
+| Camera | RTSP, OpenCV VideoCapture, JPEG/MJPEG |
+| Infrastructure | Docker Compose, Nginx |
 
-Đọc nhãn trực tiếp trên module vì thứ tự chân có thể khác nhau giữa các hãng.
+## 🔌 Phần cứng
 
-> Project chỉ dùng điện áp thấp từ ESP32. Không đấu điện lưới vào breadboard.
+### Mô hình demo hiện tại
 
-## Cấu trúc chính
+- 01 MacBook chạy Docker Desktop, backend, frontend, Mosquitto và Gemini integration.
+- 01 ESP32 DevKit điều khiển bốn LED qua MQTT.
+- 01 ESP32 DevKit đọc cảm biến DHT11 tại GPIO4.
+- 04 LED, mỗi LED dùng một điện trở 330 Ω.
+- 01 camera IP truyền RTSP trong mạng LAN.
+- Microphone và loa tích hợp trên MacBook.
 
-```text
-Smart-Home-ESP32/
-├── backend/                    # FastAPI, MQTT, camera, Gemini, SQLite
-├── frontend/                   # React web app
-├── mqtt/                       # Mosquitto configuration
-├── esp32-firmware/             # Firmware điều khiển bốn LED
-├── esp32-sensor-firmware/      # Firmware DHT11 GPIO4 đang dùng
-├── environment-firmware/       # DHT22 tùy chọn, chưa test vật lý
-├── android-app/                # Ứng dụng Android trong repository
-└── docker-compose.yml          # MQTT, backend và frontend
+### Sơ đồ chân đèn
+
+| Khu vực | MQTT ID | GPIO | Logic |
+| --- | --- | ---: | --- |
+| Phòng khách | `living-room` | 16 | Active-LOW |
+| Phòng ngủ | `bedroom` | 17 | Active-LOW |
+| Nhà bếp | `kitchen` | 18 | Active-LOW |
+| Ban công | `balcony` | 19 | Active-LOW |
+
+Mỗi LED được mắc theo thứ tự `3V3 → điện trở 330 Ω → LED → GPIO`. Với logic active-LOW, `LOW` tương ứng bật và `HIGH` tương ứng tắt.
+
+### DHT11
+
+| DHT11 | ESP32 |
+| --- | --- |
+| `VCC` / `+` | `3V3` |
+| `DATA` / `S` / `OUT` | `GPIO4` |
+| `GND` / `-` | `GND` |
+
+> [!CAUTION]
+> Rút nguồn trước khi thay đổi dây. Không nối điện lưới, relay tải lớn hoặc thiết bị 220 V vào breadboard của mô hình này.
+
+## 🚀 Bắt đầu
+
+### Yêu cầu
+
+- [Git](https://git-scm.com/)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) có Docker Compose
+- Trình duyệt hiện đại
+- VS Code + [PlatformIO IDE](https://platformio.org/install/ide?install=vscode) nếu nạp firmware
+- Google AI API key nếu sử dụng Gemini
+
+### 1. Clone repository
+
+```bash
+git clone https://github.com/VyOZzz/Smart-Home-ESP32.git
+cd Smart-Home-ESP32
 ```
 
-## Cấu hình
+### 2. Tạo file môi trường
 
-### Backend
+macOS/Linux:
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Nếu dùng Gemini, điền API key trong `backend/.env`:
+Windows PowerShell:
 
-```env
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+Các tính năng MQTT, đèn, cảm biến và dashboard có thể chạy trong LAN mà không cần Gemini. Để bật Gemini, sửa:
+
+```dotenv
 GOOGLE_API_KEY=YOUR_GOOGLE_API_KEY
 ```
 
-Nếu dùng camera, chỉ đặt URL RTSP trong `backend/.env`:
+Nếu sử dụng camera IP, chỉ đặt URL RTSP trong `backend/.env`:
 
-```env
-HOME_CAMERA_RTSP_URL=rtsp://user:password@camera-ip:554/path-theo-model
+```dotenv
+HOME_CAMERA_RTSP_URL=rtsp://user:password@camera-ip:554/model-specific-path
 ```
 
-Không đoán RTSP path khi chưa biết hãng/model camera. Không đưa URL hoặc thông
-tin đăng nhập camera vào frontend, log hoặc commit.
+Không đoán RTSP path nếu chưa biết hãng/model camera. Không commit URL hoặc thông tin đăng nhập camera.
 
-Backend chạy trong Docker dùng `MQTT_HOST=mqtt`. ESP32 không dùng tên này.
-
-### Hai ESP32
-
-Tạo file cấu hình cục bộ:
+### 3. Khởi động hệ thống
 
 ```bash
-cp esp32-firmware/include/config.example.h \
-  esp32-firmware/include/config.h
-
-cp esp32-sensor-firmware/include/config.example.h \
-  esp32-sensor-firmware/include/config.h
-```
-
-Lấy IPv4 LAN của MacBook:
-
-```bash
-ipconfig getifaddr en0
-```
-
-Điền cùng Wi-Fi và IP MacBook vào cả hai file `config.h`:
-
-```cpp
-#define WIFI_SSID "TEN_WIFI"
-#define WIFI_PASSWORD "MAT_KHAU_WIFI"
-#define MQTT_HOST "IPV4_LAN_CUA_MACBOOK"
-#define MQTT_PORT 1883
-```
-
-Không dùng `localhost`, `127.0.0.1` hoặc `mqtt` làm `MQTT_HOST` trên ESP32.
-
-## Build và nạp firmware
-
-Liệt kê cổng USB:
-
-```bash
-ls /dev/cu.*
-```
-
-Nạp đúng từng board bằng cổng tường minh:
-
-```bash
-pio run -d esp32-firmware \
-  -t upload --upload-port /dev/cu.usbserial-XXXX
-```
-
-```bash
-pio run -d esp32-sensor-firmware \
-  -t upload --upload-port /dev/cu.usbserial-YYYY
-```
-
-Serial Monitor dùng baud 115200:
-
-```bash
-pio device monitor --port /dev/cu.usbserial-XXXX --baud 115200
-```
-
-Log mong đợi:
-
-```text
-[WiFi] Connected
-[MQTT] Connected
-```
-
-## Chạy hệ thống
-
-Mở Docker Desktop rồi chạy:
-
-```bash
-cd /Users/vypham/Project/Smart-Home-ESP32
-docker compose up -d --build
+docker compose up --build -d
 docker compose ps
 ```
 
-Địa chỉ sử dụng:
-
-- Web: <http://localhost:5173>
-- Backend API: <http://localhost:8000>
-- Swagger: <http://localhost:8000/docs>
-- MQTT trên MacBook: `localhost:1883`
-
-`iot-mqtt` và `iot-backend` phải hiện `healthy`; `iot-frontend` phải hiện `Up`.
-
-## MQTT topics
-
-### ESP32 đèn
-
-| Topic | Chức năng |
+| Dịch vụ | Địa chỉ |
 | --- | --- |
-| `smarthome/lights/<id>/set` | Gửi lệnh `ON` hoặc `OFF` |
-| `smarthome/lights/<id>/state` | ESP32 xác nhận trạng thái GPIO |
-| `smarthome/lights/all/set` | Điều khiển cả bốn đèn |
-| `smarthome/esp32/get-state` | Yêu cầu đồng bộ bốn trạng thái |
-| `smarthome/esp32/status` | Online/offline retained + Last Will |
+| Web dashboard | <http://localhost:5173> |
+| Backend API | <http://localhost:8000> |
+| Swagger UI | <http://localhost:8000/docs> |
+| MQTT broker | `localhost:1883` |
 
-### ESP32 DHT11
+Theo dõi log:
 
-| Topic | Chức năng |
+```bash
+docker compose logs -f
+```
+
+Dừng hệ thống:
+
+```bash
+docker compose down
+```
+
+## 📡 Cấu hình ESP32
+
+Hai ESP32 và máy chạy Mosquitto phải ở cùng mạng LAN. ESP32 thường chỉ hỗ trợ Wi-Fi 2.4 GHz.
+
+### ESP32 điều khiển đèn
+
+```bash
+cp esp32-firmware/include/config.example.h \
+   esp32-firmware/include/config.h
+```
+
+### ESP32 + DHT11
+
+```bash
+cp esp32-sensor-firmware/include/config.example.h \
+   esp32-sensor-firmware/include/config.h
+```
+
+Điền cấu hình mạng vào từng file `config.h`:
+
+```cpp
+#define WIFI_SSID "YOUR_WIFI_NAME"
+#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#define MQTT_HOST "192.168.1.10"
+#define MQTT_PORT 1883
+```
+
+`MQTT_HOST` trên ESP32 phải là IPv4 LAN của máy chạy Mosquitto, không phải `localhost`, `127.0.0.1` hoặc tên service Docker `mqtt`.
+
+Build và upload:
+
+```bash
+pio run -d esp32-firmware -t upload
+pio run -d esp32-sensor-firmware -t upload
+```
+
+Serial Monitor sử dụng baud `115200`.
+
+Tài liệu chi tiết:
+
+- [Firmware điều khiển đèn](esp32-firmware/README.md)
+- [Firmware DHT11](esp32-sensor-firmware/README.md)
+- [MQTT broker](mqtt/README.md)
+- [Danh sách thiết bị](ITEMS.md)
+
+## ⚙️ Cấu hình backend
+
+Các biến phổ biến trong `backend/.env`:
+
+| Biến | Mặc định | Mục đích |
+| --- | --- | --- |
+| `GOOGLE_API_KEY` | Trống | Xác thực Google Gemini |
+| `GEMINI_MODEL` | `gemini-3.1-flash-live-preview` | Hội thoại realtime |
+| `GEMINI_TTS_MODEL` | `gemini-2.5-flash-preview-tts` | Tạo cảnh báo giọng nói |
+| `GEMINI_IMAGE_MODEL` | `gemini-3.5-flash` | Phân tích ảnh tĩnh |
+| `HOME_CAMERA_RTSP_URL` | Trống | Luồng camera IP |
+| `MQTT_HOST` | `mqtt` | MQTT broker của backend |
+| `MQTT_PORT` | `1883` | Cổng MQTT |
+| `MQTT_COMMAND_TIMEOUT_SECONDS` | `3` | Thời gian chờ ESP32 xác nhận |
+| `ENVIRONMENT_STALE_AFTER_SECONDS` | `30` | Ngưỡng dữ liệu cảm biến stale |
+| `ENVIRONMENT_HISTORY_MAX_ROWS` | `10000` | Số bản ghi SQLite tối đa |
+| `FIRE_ALERT_COOLDOWN_SECONDS` | `10` | Khoảng nghỉ giữa cảnh báo cháy |
+| `SAVE_CAPTURED_IMAGE` | `False` | Lưu khung hình đã xử lý |
+
+Xem đầy đủ tại [`backend/.env.example`](backend/.env.example).
+
+## 🔗 API reference
+
+Swagger UI cung cấp schema và giao diện thử API tại <http://localhost:8000/docs>.
+
+### REST API
+
+| Method | Endpoint | Mô tả |
+| --- | --- | --- |
+| `GET` | `/smart-home/lights` | Danh sách trạng thái đèn |
+| `GET` | `/smart-home/lights/{location}` | Trạng thái một đèn |
+| `POST` | `/smart-home/lights/on` | Bật đèn và chờ ESP32 xác nhận |
+| `POST` | `/smart-home/lights/off` | Tắt đèn và chờ ESP32 xác nhận |
+| `GET` | `/smart-home/environment` | Dữ liệu môi trường mới nhất |
+| `GET` | `/smart-home/environment/history` | Lịch sử nhiệt độ/độ ẩm |
+| `GET` | `/smart-home/camera/status` | Trạng thái camera IP |
+| `GET` | `/smart-home/camera/snapshot` | Ảnh JPEG mới nhất |
+| `GET` | `/smart-home/camera/stream` | MJPEG stream |
+| `GET` | `/smart-home/music/library` | Danh sách bài hát |
+| `POST` | `/smart-home/music/play` | Phát bài hát |
+| `POST` | `/smart-home/music/pause` | Tạm dừng |
+| `POST` | `/smart-home/music/resume` | Tiếp tục phát |
+| `POST` | `/smart-home/music/seek` | Tua bài hát |
+| `POST` | `/assistant/chat` | Trợ lý văn bản cơ bản |
+
+Ví dụ bật đèn:
+
+```bash
+curl -X POST http://localhost:8000/smart-home/lights/on \
+  -H "Content-Type: application/json" \
+  -d '{"location":"Phòng khách"}'
+```
+
+### WebSocket
+
+| Endpoint | Dữ liệu realtime |
 | --- | --- |
-| `smarthome/sensors/room-1/state` | Nhiệt độ/độ ẩm retained |
-| `smarthome/esp32-sensor/status` | Online/offline retained + Last Will |
-| `smarthome/sensors/room-1/get-state` | Yêu cầu đọc và gửi ngay |
+| `/ws/gemini` | Gemini Live, audio, ảnh và tool calls |
+| `/smart-home/lights/stream` | Trạng thái đèn |
+| `/smart-home/music/updates` | Trạng thái phát nhạc |
+| `/smart-home/environment/updates` | Nhiệt độ và độ ẩm |
+| `/smart-home/camera/updates` | Sự kiện camera và fire detection |
 
-Payload DHT11:
+## 📬 MQTT reference
+
+### ESP32 điều khiển đèn
+
+| Topic | Chiều | Mô tả |
+| --- | --- | --- |
+| `smarthome/lights/<id>/set` | Backend → ESP32 | Gửi `ON` hoặc `OFF` |
+| `smarthome/lights/<id>/state` | ESP32 → Backend | Xác nhận trạng thái GPIO |
+| `smarthome/lights/all/set` | Backend → ESP32 | Điều khiển cả bốn đèn |
+| `smarthome/esp32/get-state` | Backend → ESP32 | Yêu cầu snapshot trạng thái |
+| `smarthome/esp32/status` | ESP32 → Backend | Online/offline retained + Last Will |
+
+### ESP32 + DHT11
+
+| Topic | Chiều | Mô tả |
+| --- | --- | --- |
+| `smarthome/sensors/room-1/state` | ESP32 → Backend | Nhiệt độ/độ ẩm retained |
+| `smarthome/sensors/room-1/get-state` | Backend → ESP32 | Yêu cầu số đo mới nhất |
+| `smarthome/esp32-sensor/status` | ESP32 → Backend | Online/offline retained + Last Will |
+
+Payload mẫu:
 
 ```json
-{"device_id":"esp32-sensor","sensor_id":"room-1","name":"Phòng 1","temperature":28.0,"humidity":65.0,"temperature_unit":"C"}
+{
+  "device_id": "esp32-sensor",
+  "sensor_id": "room-1",
+  "name": "Phòng 1",
+  "temperature": 28.0,
+  "humidity": 65.0,
+  "temperature_unit": "C"
+}
 ```
 
 Theo dõi toàn bộ MQTT traffic:
 
 ```bash
-docker compose exec mqtt mosquitto_sub \
-  -h localhost -t "smarthome/#" -v
+docker compose exec mqtt \
+  mosquitto_sub -h localhost -t "smarthome/#" -v
 ```
 
-## Đổi mạng khi mang đi demo
+## 📁 Cấu trúc repository
 
-Firmware hiện lưu SSID, mật khẩu và IP broker trong `config.h`. Khi đổi mạng:
+```text
+Smart-Home-ESP32/
+├── backend/                    # FastAPI, MQTT, Gemini, camera và SQLite
+│   ├── app/api/routes/         # REST API và WebSocket
+│   ├── app/services/           # Logic nghiệp vụ và integrations
+│   ├── data/                   # Runtime state và database
+│   ├── music/                  # Thư viện nhạc demo
+│   └── tests/                  # Backend test suite
+├── frontend/                   # React + TypeScript dashboard
+├── android-app/                # Source Android client
+├── esp32-firmware/             # Firmware điều khiển bốn LED
+├── esp32-sensor-firmware/      # Firmware ESP32 + DHT11 đang sử dụng
+├── environment-firmware/       # Node DHT22 tùy chọn, chưa test vật lý
+├── mqtt/                       # Eclipse Mosquitto configuration
+├── docker-compose.yml          # Local orchestration
+├── requirements.txt            # Python dependencies
+└── ITEMS.md                    # Danh sách phần cứng
+```
 
-1. Cho MacBook và hai ESP32 dùng cùng một Wi-Fi 2.4 GHz.
-2. Lấy IPv4 LAN mới của MacBook.
-3. Cập nhật hai file `config.h`.
-4. Nạp lại hai ESP32.
+## 🧪 Kiểm thử
 
-Nên dùng hotspot hoặc Internet Sharing riêng với SSID/mật khẩu cố định. Wi-Fi
-trường có thể bật client isolation làm ESP32 không truy cập được MacBook.
-
-## Kiểm thử
+### Backend
 
 ```bash
-# Firmware
-pio run -d esp32-firmware
-pio run -d esp32-sensor-firmware
-
-# Backend trong Docker image
 docker compose run --rm --no-deps backend \
   python -m unittest discover -s tests -v
+```
 
-# Frontend
+### Frontend
+
+```bash
+npm --prefix frontend ci
 npm --prefix frontend run build
+```
 
-# Docker Compose
+### Firmware
+
+```bash
+pio run -d esp32-firmware
+pio run -d esp32-sensor-firmware
+```
+
+### Docker Compose
+
+```bash
+docker compose config
+docker compose up -d --build
+docker compose ps
+```
+
+## 🧭 Roadmap
+
+- [x] Điều khiển bốn đèn qua MQTT với acknowledgement.
+- [x] Dashboard web realtime.
+- [x] ESP32 + DHT11 và lịch sử SQLite.
+- [x] Camera IP RTSP, snapshot và MJPEG stream.
+- [x] Gemini Live, function calling và điều khiển bằng giọng nói.
+- [x] Phát nhạc và cảnh báo cháy thử nghiệm.
+- [ ] Hoàn thiện và kiểm thử Android client với backend hiện tại.
+- [ ] Kiểm thử node DHT22 tùy chọn trên phần cứng thật.
+- [ ] Bổ sung xác thực người dùng và phân quyền thiết bị.
+- [ ] Bật MQTT authentication/TLS cho môi trường triển khai.
+- [ ] Thêm CI/CD, HTTPS, monitoring và production deployment.
+
+## 🔐 Bảo mật và an toàn
+
+- Mosquitto hiện cho phép kết nối ẩn danh để demo trong LAN; không public cổng `1883` ra Internet.
+- Không commit `backend/.env`, các file `include/config.h`, Wi-Fi credentials, Gemini API key, MQTT password, CA certificate hoặc RTSP credentials.
+- Không trả URL RTSP hoặc thông tin đăng nhập camera về frontend hay ghi vào log.
+- Sử dụng MQTT TLS, tài khoản riêng cho từng thiết bị và secret manager trước khi triển khai thật.
+- Fire detection qua camera có thể báo sai hoặc bỏ sót; không thay thế đầu báo khói/nhiệt đạt chuẩn.
+- Mô hình hiện dùng LED điện áp thấp, không dùng relay hoặc tải điện lưới.
+
+## 🛠 Xử lý sự cố
+
+### ESP32 không kết nối MQTT
+
+- Kiểm tra ESP32 và máy chạy broker đang cùng Wi-Fi 2.4 GHz.
+- Dùng IPv4 LAN của máy làm `MQTT_HOST`; không dùng `localhost`.
+- Cho phép inbound TCP `1883` trong firewall.
+- Kiểm tra broker bằng `docker compose logs mqtt`.
+
+### Backend không healthy
+
+```bash
+docker compose logs backend
 docker compose config
 ```
 
-Kiểm tra API khi hệ thống đang chạy:
+Đảm bảo `backend/.env` tồn tại và không chứa giá trị sai kiểu.
 
-```bash
-curl http://localhost:8000/smart-home/lights
-curl http://localhost:8000/smart-home/environment
-```
+### Camera không có hình
 
-## Kịch bản demo ngắn
+- Xác nhận camera và máy chủ truy cập được nhau trong LAN.
+- Kiểm tra đúng RTSP path theo hãng/model.
+- Không gửi password camera vào issue hoặc log công khai.
 
-1. Chạy `docker compose up -d` và mở <http://localhost:5173>.
-2. Xác nhận hai ESP32 online.
-3. Bật/tắt từng phòng và đối chiếu LED vật lý.
-4. Quan sát nhiệt độ/độ ẩm DHT11 cập nhật.
-5. Nếu Gemini đã cấu hình và kiểm tra trước, thử lệnh điều khiển bằng giọng nói.
-6. Nếu RTSP đã cấu hình và kiểm tra trước, mở camera IP.
-7. Rút/cắm lại một ESP32 để demo offline và reconnect.
+### Gemini không hoạt động
 
-## Giới hạn và bảo mật
+- Kiểm tra `GOOGLE_API_KEY` và quyền truy cập model.
+- Kiểm tra kết nối Internet của backend.
+- Các chức năng MQTT và dashboard vẫn có thể chạy khi Gemini không khả dụng.
 
-- Bốn LED chỉ đại diện cho bốn đèn, không điều khiển tải điện lưới.
-- `/state` xác nhận mức GPIO, không đo độ sáng thực tế của LED.
-- Phát hiện cháy qua camera chỉ là demo giáo dục, có thể báo sai hoặc bỏ sót.
-- Hệ thống không thay thế đầu báo khói/nhiệt được chứng nhận.
-- Đây không phải hệ thống an toàn giám sát liên tục.
-- Mosquitto hiện cho phép kết nối ẩn danh để demo trong LAN; không mở cổng 1883
-  trực tiếp ra Internet.
-- Firmware hiện cần nạp lại khi đổi SSID hoặc IP broker.
+## 🤝 Đóng góp
 
-Không commit:
+Issue và pull request đều được chào đón.
 
-- `backend/.env`
-- `esp32-firmware/include/config.h`
-- `esp32-sensor-firmware/include/config.h`
-- `environment-firmware/include/config.h`
-- Wi-Fi/MQTT credentials, Gemini API key, CA certificate hoặc RTSP credentials
+1. Fork repository.
+2. Tạo nhánh mới: `git switch -c feature/ten-tinh-nang`.
+3. Thực hiện thay đổi và bổ sung test/tài liệu liên quan.
+4. Chạy backend tests, frontend build và firmware build.
+5. Commit rõ ràng và mở pull request.
 
-## Phần mở rộng DHT22
+Khi mô tả thay đổi phần cứng, hãy phân biệt rõ nội dung đã kiểm thử thực tế và nội dung mới chỉ mô phỏng.
 
-`environment-firmware/` là firmware tùy chọn cho ESP32 + DHT22, DATA ở GPIO23,
-device ID `esp32-environment`. Node này chưa được xác nhận bằng phần cứng thật và
-không thuộc luồng DHT11 đang dùng trong demo hiện tại.
+## 📄 Giấy phép
 
-## Đóng góp
+Repository hiện chưa công bố file `LICENSE`. Mặc định tác giả giữ toàn bộ quyền. Hãy liên hệ tác giả trước khi phân phối hoặc tái sử dụng project ngoài phạm vi được cho phép.
 
-Issue và pull request đều được chào đón. Trước khi gửi thay đổi:
+---
 
-1. Không commit API key, thông tin Wi-Fi, MQTT, RTSP hoặc certificate.
-2. Chạy test backend, build frontend và build firmware có liên quan.
-3. Mô tả rõ phần cứng đã kiểm thử thực tế và phần nào mới chỉ được mô phỏng.
-4. Cập nhật tài liệu nếu thay đổi API, MQTT topic, sơ đồ chân hoặc quy trình cài
-   đặt.
+<div align="center">
 
-## Giấy phép
+Được xây dựng cho mục đích học tập, nghiên cứu và trình diễn IoT.
 
-Repository hiện chưa công bố file `LICENSE`. Mặc định tác giả giữ toàn bộ quyền;
-hãy liên hệ tác giả trước khi phân phối hoặc tái sử dụng project ngoài phạm vi
-được cho phép.
+</div>
